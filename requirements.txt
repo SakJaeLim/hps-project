@@ -1,0 +1,25 @@
+# --- Optimization ---
+gymnasium
+numpy
+pandas
+torch
+
+# --- Domain SLM / RAG (Track 1) ---
+transformers
+peft
+accelerate
+networkx
+scikit-learn
+duckdb
+sqlalchemy
+requests
+
+# --- Serving / API / UI ---
+fastapi
+uvicorn
+streamlit
+pydantic
+
+# --- Dev ---
+pytest
+python-dotenv

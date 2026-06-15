@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+pytest-cache-files-*/
+
+# Env & secrets
+.env
+*.key
+
+# Models & large artifacts
+*.gguf
+*.safetensors
+checkpoints/
+models/
+outputs/
+
+# Data: real (비식별 실데이터는 절대 커밋 금지)
+data/real/*
+!data/real/README.txt
+
+# OS
+.DS_Store
