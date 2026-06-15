@@ -45,11 +45,12 @@ st.markdown("""
         font-weight: 800;
         margin: 0;
         letter-spacing: -0.5px;
+        color: #ffffff !important;
     }
     
     .header-subtitle {
         font-size: 13px;
-        opacity: 0.8;
+        color: rgba(255, 255, 255, 0.9) !important;
         margin-top: 4px;
     }
     
@@ -191,8 +192,8 @@ def local_mock_inference(model_name, prompt):
 
 # Sidebar Layout (SCR-05 & Global Navigation)
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center; color: #1F3864;'>PortSLM</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 12px; color: #69788f;'>aSSIST AI Project 4조</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #ffffff;'>PortSLM</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 12px; color: #cbd5e0;'>aSSIST AI Project 4조</p>", unsafe_allow_html=True)
     st.markdown("---")
     
     # Left Navigation menu
