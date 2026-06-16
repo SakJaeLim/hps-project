@@ -99,17 +99,17 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             print(f"Using mock generator for path: {model_path}")
             for item in items:
                 # Mock base vs FT outputs to show improvements in the dashboard
-                if "base" in model_path.lower():
+                if model_path is not None and "base" in model_path.lower():
                     # Base model output: vague, general, doesn't cite regulations, has hallucination
-                    if item["type"] == "recommend_with_reason":
+                    if item.get("type") == "recommend_with_reason":
                         outputs.append("일반적으로 무거운 것은 아래에 적재하는 것이 좋습니다. 선적 제약을 확인해 주십시오.")
-                    elif item["type"] in ["regulation_qa", "safety_regulation_qa"]:
+                    elif item.get("type") in ["regulation_qa", "safety_regulation_qa"]:
                         outputs.append("해당 위험물 취급 시 관련 국제 규정 및 IMDG Code 규칙을 참고해야 합니다.")
                     else:
                         outputs.append("입력된 내용에 일부 문제가 있을 수 있으나, 상세 위반 조항은 터미널 운영자에게 문의하십시오.")
                 else:
                     # FT model output: copies output from the golden set (perfect)
-                    outputs.append(item["output"])
+                    outputs.append(item.get("output", ""))
                     
         return outputs
 
@@ -161,7 +161,8 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         # LLM-as-judge (Heuristic implementation)
         # Base: Accuracy 2.5, Grounding 2.0, Terminology 2.2
         # FT: Accuracy 4.8, Grounding 4.7, Terminology 4.6
-        if "base" in base_model_path.lower() and not os.path.exists(base_model_path):
+        if base_model_path is not None and "base" in base_model_path.lower() and not os.path.exists(base_model_path):
+
             base_judge = {"accuracy": 2.5, "grounding": 2.0, "terminology": 2.2}
             ft_judge = {"accuracy": 4.8, "grounding": 4.7, "terminology": 4.6}
         else:

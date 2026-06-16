@@ -1,9 +1,14 @@
-"""T05 · spec 00 — TDD Red(미구현). 구현되면 xfail 제거 → Green 이어야 함."""
+"""T05 · spec 00 — TDD Green."""
 import pytest
 
-@pytest.mark.xfail(reason="TDD Red — T05 미구현", strict=False)
 def test_greedy():
     from snct.engine.greedy import GreedyStrategy
-    from snct.common.schema import YardState
-    cp = GreedyStrategy().plan(YardState(slots=[], queue=[]))
-    assert cp.engine == "greedy" and isinstance(cp.assignments, list)
+    from snct.common.schema import YardState, Slot, Container
+    ys = YardState(
+        slots=[Slot(bay=1, row=1, tier=1, max_stack_weight=30.0)],
+        queue=[Container(id="C1", weight_ton=20.0, size="40", type="GP", pod="LAX")]
+    )
+    cp = GreedyStrategy().plan(ys)
+    assert cp.engine == "greedy"
+    assert isinstance(cp.assignments, list)
+    assert len(cp.assignments) > 0

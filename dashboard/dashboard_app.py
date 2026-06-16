@@ -140,7 +140,8 @@ st.markdown("""
 # API Server URL
 API_URL = "http://127.0.0.1:8000"
 
-def call_api(endpoint, data=None, method="POST"):
+def call_api(endpoint: str, data: dict = None, method: str = "POST") -> dict | None:
+    """Make HTTP requests to the backend API server."""
     try:
         if method == "POST":
             r = requests.post(f"{API_URL}{endpoint}", json=data, timeout=30.0)
@@ -167,7 +168,8 @@ if "local_history" not in st.session_state:
     st.session_state.local_history = []
 
 # Mock fallbacks matching API logic
-def local_mock_inference(model_name, prompt):
+def local_mock_inference(model_name: str, prompt: str) -> str:
+    """Fallback mock inference for testing UI without backend API."""
     prompt_lower = prompt.lower()
     if "dg" in prompt_lower or "위험물" in prompt_lower:
         if "base" in model_name.lower():

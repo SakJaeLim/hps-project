@@ -1,7 +1,6 @@
-"""T11 · spec 07 — TDD Red(미구현). 구현되면 xfail 제거 → Green 이어야 함."""
+"""T11 · spec 07 — TDD Green."""
 import pytest
 
-@pytest.mark.xfail(reason="TDD Red — T11 미구현", strict=False)
 def test_nl2sql_readonly():
     from snct.knowledge import nl2sql
     with pytest.raises(Exception):

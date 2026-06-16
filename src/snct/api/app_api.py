@@ -77,7 +77,7 @@ def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
     return None
 
 
-def run_mock_inference(model_name, prompt):
+def run_mock_inference(model_name: str, prompt: str) -> str:
     """Fallback mock inference when HF API is unavailable."""
     prompt_lower = prompt.lower()
 
@@ -107,7 +107,8 @@ def run_mock_inference(model_name, prompt):
 
 
 @app.post("/generate")
-def generate(req: GenerateRequest):
+def generate(req: GenerateRequest) -> dict:
+    """Generate an answer based on user prompt using HF inference or fallback mock."""
     start_time = time.time()
 
     # Try real model inference first
@@ -141,7 +142,8 @@ def generate(req: GenerateRequest):
 
 
 @app.post("/compare")
-def compare(req: CompareRequest):
+def compare(req: CompareRequest) -> dict:
+    """Compare answers between base and fine-tuned models."""
     base_ans = call_hf_inference(req.prompt, "base") or run_mock_inference("base", req.prompt)
     ft_ans = call_hf_inference(req.prompt, "portslm") or run_mock_inference("portslm", req.prompt)
 
@@ -210,7 +212,8 @@ def knowledge_endpoint(q: str = "DG 위험물 적재 규칙"):
 
 
 @app.get("/metrics")
-def get_metrics():
+def get_metrics() -> dict:
+    """Return evaluation metrics from CSV or mocked fallback data."""
     if os.path.exists(EVAL_CSV_PATH):
         try:
             total_items = 0
@@ -275,7 +278,8 @@ def get_metrics():
 
 
 @app.post("/feedback")
-def feedback(req: FeedbackRequest):
+def feedback(req: FeedbackRequest) -> dict:
+    """Save user feedback on a generated answer."""
     for h in reversed(history):
         if h["prompt"] == req.qid:
             h["feedback"] = "👍" if req.vote == "up" else "👎" if req.vote == "down" else req.vote
@@ -287,5 +291,6 @@ def feedback(req: FeedbackRequest):
 
 
 @app.get("/history")
-def get_history():
+def get_history() -> list:
+    """Return the history of generated responses and feedback."""
     return history

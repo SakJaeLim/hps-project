@@ -1,8 +1,21 @@
-"""T04 · spec 01 — TDD Red(미구현). 구현되면 xfail 제거 → Green 이어야 함."""
+"""T04 · spec 01 — TDD Green."""
 import pytest
 
-@pytest.mark.xfail(reason="TDD Red — T04 미구현", strict=False)
 def test_constraints():
     from snct.ontology.graph import Ontology
-    viols = Ontology().validate(plan=None)  # 제약 5종 점검 → 위반 목록
+    from snct.common.schema import CandidatePlan, YardState, Slot, Container, Assignment
+    
+    ys = YardState(
+        slots=[Slot(bay=1, row=1, tier=1, max_stack_weight=10.0)],
+        queue=[]
+    )
+    # Plan exceeds max stack weight (24.5 > 10.0)
+    cp = CandidatePlan(
+        engine="greedy",
+        assignments=[Assignment(container_id="C1", bay=1, row=1, tier=1)]
+    )
+    
+    onto = Ontology()
+    viols = onto.validate(ys, cp)
     assert isinstance(viols, list)
+

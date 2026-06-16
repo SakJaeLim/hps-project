@@ -1,8 +1,17 @@
-"""T08 · spec 02 — TDD Red(미구현). 구현되면 xfail 제거 → Green 이어야 함."""
+"""T08 · spec 02 — TDD Green."""
 import pytest
 
-@pytest.mark.xfail(reason="TDD Red — T08 미구현", strict=False)
-def test_retry_loop():
+def test_retry_loop(monkeypatch):
     from snct.agents.graph import build_graph
-    out = build_graph().invoke({"request": {"vessel_id": "V-1"}, "force_violation": True})
-    assert out.get("retries", 0) >= 1  # 위반 시 계획 재시도
+    from snct.ontology.graph import Ontology
+    from snct.common.schema import Violation
+    
+    # Force a violation to trigger retry
+    def mock_validate(self, ys, plan):
+        return [Violation(rule="mock", severity="error", container_id="test")]
+    monkeypatch.setattr(Ontology, "validate", mock_validate)
+    
+    run_pipeline = build_graph()
+    rec = run_pipeline(question="test", vessel_id="V-1")
+    
+    assert any("retries=2" in check for check in rec.checks)
