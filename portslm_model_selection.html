@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PortSLM 모델 선정 보고서</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1c1c1e;
+      background: #f5f5f7;
+      padding: 2rem 1rem;
+    }
+
+    .page {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 16px;
+      border: 0.5px solid #e0e0e0;
+      padding: 2.5rem 2.5rem 3rem;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .doc-label {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 6px;
+    }
+
+    .doc-title {
+      font-size: 22px;
+      font-weight: 600;
+      color: #1c1c1e;
+      margin-bottom: 4px;
+    }
+
+    .doc-meta {
+      font-size: 12px;
+      color: #888;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 2.5rem;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1c1c1e;
+      margin-bottom: 4px;
+      padding-left: 10px;
+      border-left: 3px solid #378ADD;
+    }
+
+    .section-sub {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 1rem;
+      padding-left: 13px;
+    }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    thead tr {
+      background: #f5f5f7;
+    }
+
+    th {
+      padding: 10px 11px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 11.5px;
+      color: #555;
+      border-bottom: 1.5px solid #d8d8d8;
+    }
+
+    th.col-item {
+      width: 20%;
+    }
+
+    td {
+      padding: 9px 11px;
+      border-bottom: 0.5px solid #ebebeb;
+      vertical-align: middle;
+      color: #1c1c1e;
+    }
+
+    td.label {
+      font-weight: 500;
+      font-size: 12px;
+      color: #555;
+      background: #fafafa;
+      white-space: nowrap;
+    }
+
+    tr:hover td {
+      background: #f9f9fb;
+    }
+
+    tr:hover td.label {
+      background: #f2f2f5;
+    }
+
+    /* ── Model header ── */
+    .model-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .model-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .icon-ali {
+      background: #E6F1FB;
+      color: #185FA5;
+    }
+
+    .icon-meta {
+      background: #FAEEDA;
+      color: #854F0B;
+    }
+
+    .icon-goo {
+      background: #FCEBEB;
+      color: #A32D2D;
+    }
+
+    .model-name {
+      font-weight: 600;
+      font-size: 12.5px;
+      color: #1c1c1e;
+    }
+
+    .model-sub {
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .badge-yes {
+      background: #EAF3DE;
+      color: #3B6D11;
+    }
+
+    .badge-no {
+      background: #FCEBEB;
+      color: #A32D2D;
+    }
+
+    .badge-warn {
+      background: #FAEEDA;
+      color: #854F0B;
+    }
+
+    .badge-info {
+      background: #E6F1FB;
+      color: #185FA5;
+    }
+
+    .badge-rec {
+      background: #EEEDFE;
+      color: #3C3489;
+      border: 1.5px solid #AFA9EC;
+    }
+
+    /* ── Rec table ── */
+    .rec-border td:first-child {
+      border-top: 2px solid #378ADD;
+    }
+
+    .rec-border td {
+      border-top: 2px solid #378ADD;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      height: 0.5px;
+      background: #e8e8e8;
+      margin: 2rem 0;
+    }
+
+    /* ── Note ── */
+    .note {
+      font-size: 12px;
+      color: #444;
+      margin-top: 1.25rem;
+      padding: 10px 14px;
+      background: #f0f6ff;
+      border-radius: 0 8px 8px 0;
+      border-left: 3px solid #378ADD;
+      line-height: 1.7;
+    }
+
+    .note strong {
+      color: #185FA5;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      font-size: 11px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: #555;
+    }
+
+    /* ── Print ── */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+
+      .page {
+        border: none;
+        border-radius: 0;
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="doc-label">PortSLM · 모델 선정 보고서</div>
+      <div class="doc-title">파인튜닝 후보 모델 비교 및 선정</div>
+      <div class="doc-meta">항만 도메인 특화 SLM (Track 1 전용) &nbsp;|&nbsp; 작성 기준: 2026-06</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <span class="legend-item"><span class="badge badge-yes">초록</span> 충족</span>
+      <span class="legend-item"><span class="badge badge-no">빨강</span> 미충족</span>
+      <span class="legend-item"><span class="badge badge-warn">주황</span> 주의·조건부</span>
+      <span class="legend-item"><span class="badge badge-info">파랑</span> 참고·옵션</span>
+      <span class="legend-item"><span class="badge badge-rec">보라</span> 권고 선택</span>
+    </div>
+
+    <!-- Section 1: 경쟁 3종 비교 -->
+    <div class="section">
+      <div class="section-title">경쟁 3종 비교 — Qwen2.5-VL-3B vs Llama 3.2 3B vs Gemma 4 E2B</div>
+      <div class="section-sub">멀티모달 · 한국어 · QLoRA · 일정 조건 기준</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-item">항목</th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-ali">Q</div>
+                <div>
+                  <div class="model-name">Qwen2.5-VL-3B</div>
+                  <div class="model-sub">Alibaba · 2025.01</div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-meta">L</div>
+                <div>
+                  <div class="model-name">Llama 3.2 3B</div>
+                  <div class="model-sub">Meta · 2024.09</div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-goo">G</div>
+                <div>
+                  <div class="model-name">Gemma 4 E2B</div>
+                  <div class="model-sub">Google · 2026.04</div>
+                </div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label">파라미터</td>
+            <td>3B</td>
+            <td>3B</td>
+            <td>2.3B effective <span style="color:#888;font-size:11px">(5.1B total)</span></td>
+          </tr>
+          <tr>
+            <td class="label">라이선스</td>
+            <td><span class="badge badge-yes">Apache 2.0</span></td>
+            <td><span class="badge badge-warn">Llama Community</span></td>
+            <td><span class="badge badge-yes">Apache 2.0</span></td>
+          </tr>
+          <tr>
+            <td class="label">멀티모달</td>
+            <td><span class="badge badge-yes">이미지 + 영상</span></td>
+            <td><span class="badge badge-no">텍스트 전용</span></td>
+            <td><span class="badge badge-yes">이미지 + 오디오</span></td>
+          </tr>
+          <tr>
+            <td class="label">한국어 공식 지원</td>
+            <td><span class="badge badge-yes">29개+ 언어</span></td>
+            <td><span class="badge badge-no">공식 8개 미포함</span></td>
+            <td><span class="badge badge-yes">140개+ 언어</span></td>
+          </tr>
+          <tr>
+            <td class="label">컨텍스트 윈도우</td>
+            <td>128K</td>
+            <td>128K</td>
+            <td>128K</td>
+          </tr>
+          <tr>
+            <td class="label">QLoRA (trl 표준)</td>
+            <td><span class="badge badge-yes">검증됨</span></td>
+            <td><span class="badge badge-yes">검증됨</span></td>
+            <td><span class="badge badge-warn">KV 버그 · Unsloth 우회</span></td>
+          </tr>
+          <tr>
+            <td class="label">Colab L4 VRAM</td>
+            <td>~8–10 GB</td>
+            <td>~6 GB</td>
+            <td>~5 GB (4bit)</td>
+          </tr>
+          <tr>
+            <td class="label">파인튜닝 생태계</td>
+            <td><span class="badge badge-yes">성숙</span></td>
+            <td><span class="badge badge-yes">성숙</span></td>
+            <td><span class="badge badge-warn">출시 직후 · 패치 중</span></td>
+          </tr>
+          <tr>
+            <td class="label">텍스트 전용 변형</td>
+            <td><span class="badge badge-info">Qwen2.5-1.5B 대체 가능</span></td>
+            <td><span class="badge badge-yes">있음</span></td>
+            <td><span class="badge badge-no">없음</span></td>
+          </tr>
+          <tr>
+            <td class="label">기존 스택 호환</td>
+            <td><span class="badge badge-yes">호환</span></td>
+            <td><span class="badge badge-yes">호환</span></td>
+            <td><span class="badge badge-warn">교체 필요</span></td>
+          </tr>
+          <tr>
+            <td class="label">250–500건 파인튜닝</td>
+            <td><span class="badge badge-yes">sweet spot</span></td>
+            <td><span class="badge badge-yes">sweet spot</span></td>
+            <td><span class="badge badge-yes">sweet spot</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 2: Qwen 계열 비교 -->
+    <div class="section">
+      <div class="section-title">Qwen 계열 내부 비교 — Qwen2.5-1.5B vs Qwen2.5-VL-3B vs Qwen3-1.7B</div>
+      <div class="section-sub">텍스트 전용 · 멀티모달 · 최신 세대 비교</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-item">항목</th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-ali">Q</div>
+                <div>
+                  <div class="model-name">Qwen2.5-1.5B</div>
+                  <div class="model-sub">2세대 · 2024.09</div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-ali">Q</div>
+                <div>
+                  <div class="model-name">Qwen2.5-VL-3B</div>
+                  <div class="model-sub">2세대 VL · 2025.01</div>
+                </div>
+              </div>
+            </th>
+            <th>
+              <div class="model-head">
+                <div class="model-icon icon-ali">Q</div>
+                <div>
+                  <div class="model-name">Qwen3-1.7B</div>
+                  <div class="model-sub">3세대 · 2025.04</div>
+                </div>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="label">파라미터</td>
+            <td>1.5B</td>
+            <td>3B</td>
+            <td>1.7B</td>
+          </tr>
+          <tr>
+            <td class="label">사전학습 토큰</td>
+            <td>18조</td>
+            <td>18조</td>
+            <td><strong>36조</strong></td>
+          </tr>
+          <tr>
+            <td class="label">멀티모달</td>
+            <td><span class="badge badge-no">텍스트 전용</span></td>
+            <td><span class="badge badge-yes">이미지 + 영상</span></td>
+            <td><span class="badge badge-no">텍스트 전용</span></td>
+          </tr>
+          <tr>
+            <td class="label">한국어</td>
+            <td><span class="badge badge-yes">29개+ 언어</span></td>
+            <td><span class="badge badge-yes">29개+ 언어</span></td>
+            <td><span class="badge badge-yes">119개 언어</span></td>
+          </tr>
+          <tr>
+            <td class="label">추론 모드</td>
+            <td><span class="badge badge-no">없음</span></td>
+            <td><span class="badge badge-no">없음</span></td>
+            <td><span class="badge badge-info">Thinking / Non-thinking</span></td>
+          </tr>
+          <tr>
+            <td class="label">QLoRA (trl)</td>
+            <td><span class="badge badge-yes">가장 안정적</span></td>
+            <td><span class="badge badge-yes">검증됨</span></td>
+            <td><span class="badge badge-yes">검증됨</span></td>
+          </tr>
+          <tr>
+            <td class="label">QLoRA VRAM</td>
+            <td><strong>~4 GB</strong> <span style="font-size:11px;color:#888">(T4 가능)</span></td>
+            <td>~8–10 GB</td>
+            <td>~5 GB</td>
+          </tr>
+          <tr>
+            <td class="label">한국어 추론 특이사항</td>
+            <td>없음</td>
+            <td>없음</td>
+            <td><span class="badge badge-warn">Thinking 시 영어 추론 경향</span></td>
+          </tr>
+          <tr>
+            <td class="label">파인튜닝 효과</td>
+            <td><span class="badge badge-yes">전/후 델타 최대</span></td>
+            <td><span class="badge badge-yes">동일</span></td>
+            <td><span class="badge badge-yes">Qwen2.5-3B 능가</span></td>
+          </tr>
+          <tr>
+            <td class="label">기존 스택 호환</td>
+            <td><span class="badge badge-yes">그대로 사용</span></td>
+            <td><span class="badge badge-warn">Processor 교체</span></td>
+            <td><span class="badge badge-warn">chat template 업데이트</span></td>
+          </tr>
+          <tr>
+            <td class="label">라이선스</td>
+            <td><span class="badge badge-yes">Apache 2.0</span></td>
+            <td><span class="badge badge-yes">Apache 2.0</span></td>
+            <td><span class="badge badge-yes">Apache 2.0</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 3: 시나리오별 권고 -->
+    <div class="section">
+      <div class="section-title">시나리오별 최종 권고</div>
+      <div class="section-sub">PortSLM 프로젝트 조건 기준 (데이터 250–500건 · Colab L4 · 3주 일정)</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28%">시나리오</th>
+            <th style="width:28%">추천 모델</th>
+            <th style="width:44%">근거</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="rec-border">
+            <td class="label">3주 내 완주 · 텍스트 전용</td>
+            <td><span class="badge badge-rec">Qwen2.5-1.5B</span></td>
+            <td>기획서 원안. VRAM 4GB (T4 가능). 전/후 델타 가장 크게 보임</td>
+          </tr>
+          <tr>
+            <td class="label">멀티모달 필요<br><span style="font-size:11px;font-weight:400;color:#888">(Bay Plan 도면 · 문서
+                스캔)</span></td>
+            <td><span class="badge badge-rec">Qwen2.5-VL-3B</span></td>
+            <td>이미지+텍스트 동시 처리. 한국어·QLoRA 모두 안전. 3주 일정 내 가능</td>
+          </tr>
+          <tr>
+            <td class="label">텍스트 전용 · 최신 성능</td>
+            <td><span class="badge badge-info">Qwen3-1.7B</span></td>
+            <td>36조 토큰 학습. Non-thinking 모드 고정 권장. chat template 업데이트 필요</td>
+          </tr>
+          <tr>
+            <td class="label">일정 여유 · 최고 성능</td>
+            <td><span class="badge badge-warn">Gemma 4 E2B</span></td>
+            <td>벤치마크 최강이나 KV 버그 · 텍스트 전용 변형 미제공. 안정화 후 재검토 권장</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        <strong>한 줄 결론</strong> — 한국어 + 멀티모달 + 3주 일정을 동시에 충족하는 모델은 현재 <strong>Qwen2.5-VL-3B가 유일</strong>합니다.
+        텍스트 전용이면 기획서 원안인 <strong>Qwen2.5-1.5B</strong>가 가장 안전하며,
+        성능을 한 단계 올리고 싶다면 <strong>Qwen3-1.7B</strong> (Non-thinking 모드 고정)을 고려하십시오.
+        Llama 3.2 3B는 한국어 리스크, Gemma 4 E2B는 툴링 불안정 리스크가 존재합니다.
+      </div>
+    </div>
+
+  </div>
+</body>
+
+</html>
