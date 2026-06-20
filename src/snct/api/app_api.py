@@ -5,6 +5,9 @@ import json
 import statistics
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()  # .env 파일에서 환경변수 로드
 
 app = FastAPI(title="PortSLM API Server", version="2.0")
 
