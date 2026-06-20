@@ -67,13 +67,23 @@ st.markdown("""
     
     /* Dashboard Cards */
     .card {
-        background: #ffffff;
+        background: #ffffff !important;
+        color: #2d3748 !important;
         border-radius: 12px;
         padding: 22px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         border: 1px solid #e2e8f0;
         transition: all 0.3s ease;
         margin-bottom: 20px;
+    }
+    
+    .card p {
+        color: #2d3748 !important;
+        white-space: pre-line !important;
+    }
+    
+    .card h4, .card span, .card div, .card td, .card li {
+        color: #2d3748 !important;
     }
     
     .card:hover {
@@ -345,7 +355,12 @@ elif page == "모델 비교 (前/後)":
     comp_query = st.text_input("비교 질문 입력", "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라.")
     
     if st.button("두 모델 답변 생성"):
-        api_res = call_api("/compare", {"prompt": comp_query})
+        api_res = call_api("/compare", {
+            "prompt": comp_query,
+            "temperature": st.session_state.temperature,
+            "max_tokens": st.session_state.max_tokens,
+            "top_p": st.session_state.top_p
+        })
         
         if api_res:
             base_text = api_res["base_text"]

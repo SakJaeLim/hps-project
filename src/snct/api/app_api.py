@@ -48,6 +48,9 @@ class GenerateRequest(BaseModel):
 
 class CompareRequest(BaseModel):
     prompt: str
+    temperature: float = 0.7
+    max_tokens: int = 512
+    top_p: float = 0.9
     seed: int = 42
 
 class FeedbackRequest(BaseModel):
@@ -93,6 +96,13 @@ def get_local_model(model_name: str):
                 torch_dtype=dtype,
                 device_map="auto"
             )
+            # Fix missing lm_head.weight by manually tying weights (since Qwen has tied embeddings)
+            try:
+                model.tie_weights()
+                print("[Local VLM] Tying model weights succeeded.")
+            except Exception as tie_err:
+                print(f"[Local VLM] Warning tying weights: {tie_err}")
+
             local_models[m_key] = model
             local_processors[m_key] = processor
             print(f"[Local VLM] Successfully loaded {repo_id} on {device}")
@@ -103,7 +113,7 @@ def get_local_model(model_name: str):
     return local_models[m_key], local_processors[m_key]
 
 
-def call_local_inference(prompt: str, model_name: str) -> str | None:
+def call_local_inference(prompt: str, model_name: str, temperature: float = 0.7, max_tokens: int = 512, top_p: float = 0.9) -> str | None:
     """Run inference using locally loaded Qwen2.5-VL model."""
     try:
         import torch
@@ -113,7 +123,7 @@ def call_local_inference(prompt: str, model_name: str) -> str | None:
         if not model or not processor:
             return None
             
-        print(f"[Local VLM] Running local inference on {device} (Model: {model_name})...")
+        print(f"[Local VLM] Running local inference on {device} (Model: {model_name}, max_tokens: {max_tokens}, temp: {temperature})...")
         
         messages = [
             {
@@ -137,8 +147,17 @@ def call_local_inference(prompt: str, model_name: str) -> str | None:
         )
         inputs = inputs.to(device)
         
+        # Determine sampling vs greedy search
+        do_sample = temperature > 0.0
+        
         with torch.no_grad():
-            generated_ids = model.generate(**inputs, max_new_tokens=512)
+            generated_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                temperature=temperature if do_sample else None,
+                top_p=top_p if do_sample else None,
+                do_sample=do_sample
+            )
             
         generated_ids_trimmed = [
             out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
@@ -221,7 +240,7 @@ def generate(req: GenerateRequest) -> dict:
     start_time = time.time()
 
     # Try local model first
-    ans = call_local_inference(req.prompt, req.model)
+    ans = call_local_inference(req.prompt, req.model, req.temperature, req.max_tokens, req.top_p)
     source = "local_vlm"
 
     # Try HF Inference API second
@@ -266,7 +285,7 @@ def compare(req: CompareRequest) -> dict:
     print(f"[API] /compare - Starting comparison for prompt: {req.prompt[:30]}...")
     
     # 1. Base Model Inference
-    base_ans = call_local_inference(req.prompt, "base")
+    base_ans = call_local_inference(req.prompt, "base", req.temperature, req.max_tokens, req.top_p)
     base_source = "local_vlm"
     if not base_ans:
         base_ans = call_hf_inference(req.prompt, "base")
@@ -279,7 +298,7 @@ def compare(req: CompareRequest) -> dict:
         print(f"[API] /compare - Base model SUCCEEDED (Source: {base_source})")
 
     # 2. Fine-Tuned Model Inference
-    ft_ans = call_local_inference(req.prompt, "portslm")
+    ft_ans = call_local_inference(req.prompt, "portslm", req.temperature, req.max_tokens, req.top_p)
     ft_source = "local_vlm"
     if not ft_ans:
         ft_ans = call_hf_inference(req.prompt, "portslm")
