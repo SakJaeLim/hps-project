@@ -28,10 +28,23 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     print("Merging weights...")
     merged_model = model.merge_and_unload()
     
+    # Force tie_word_embeddings to True and restore original rope_scaling config
+    from transformers import AutoConfig, AutoProcessor
+    print("Restoring base model config attributes (tie_word_embeddings, rope_scaling)...")
+    base_config = AutoConfig.from_pretrained(base_model_id, trust_remote_code=True)
+    merged_model.config.tie_word_embeddings = True
+    if hasattr(base_config, "rope_scaling"):
+        merged_model.config.rope_scaling = base_config.rope_scaling
+    
     print(f"Saving merged model to: {output_dir}")
-    tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+    if is_vl:
+        processor = AutoProcessor.from_pretrained(base_model_id, trust_remote_code=True)
+        processor.save_pretrained(output_dir)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+        tokenizer.save_pretrained(output_dir)
+        
     merged_model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
     print("Merge complete.")
     
     if upload_repo:
