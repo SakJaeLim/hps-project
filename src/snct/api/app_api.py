@@ -71,7 +71,7 @@ def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
         hf_token = os.environ.get("HF_TOKEN", "")
         if hf_token and "portslm" in model_name.lower():
             r = req.post(
-                f"https://api-inference.huggingface.co/models/{HF_MODEL_ID}",
+                f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_ID}",
                 headers={"Authorization": f"Bearer {hf_token}"},
                 json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.7}},
                 timeout=120,
