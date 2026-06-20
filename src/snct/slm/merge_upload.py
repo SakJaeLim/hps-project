@@ -43,7 +43,7 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
             print("Error: Hugging Face token not found. Set HF_TOKEN environment variable or pass --hf-token.")
             return
             
-        api.create_repo(token=token, repo_id=upload_repo, repo_type="model", private=True, exist_ok=True)
+        api.create_repo(token=token, repo_id=upload_repo, repo_type="model", private=False, exist_ok=True)
         api.upload_folder(token=token, repo_id=upload_repo, folder_path=output_dir)
         print("Upload complete.")
 

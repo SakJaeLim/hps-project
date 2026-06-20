@@ -39,8 +39,17 @@ def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruc
     has_cuda = torch.cuda.is_available()
     print(f"CUDA Available: {has_cuda}")
     
-    print(f"Loading tokenizer: {model_id}")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+    print(f"Loading tokenizer/processor: {model_id}")
+    is_vl = "vl" in model_id.lower()
+    if is_vl:
+        print("VL model detected, loading AutoProcessor...")
+        from transformers import AutoProcessor
+        processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+        tokenizer = processor.tokenizer
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        processor = tokenizer
+        
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         

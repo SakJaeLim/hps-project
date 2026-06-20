@@ -84,18 +84,36 @@ def get_local_model(model_name: str):
         
         try:
             import torch
-            from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+            from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, AutoProcessor
             
             device = "cuda" if torch.cuda.is_available() else "cpu"
             dtype = torch.bfloat16 if device == "cuda" else torch.float32
             
-            # Always load the processor from the base model since custom fine-tuned repos often miss preprocessor_config.json
-            processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
-            model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                repo_id,
-                torch_dtype=dtype,
-                device_map="auto"
-            )
+            print(f"[Local VLM] Fetching model configuration for {repo_id}...")
+            config = AutoConfig.from_pretrained(repo_id, trust_remote_code=True)
+            model_type = getattr(config, "model_type", "").lower()
+            is_vl_model = "vl" in model_type or "vision" in model_type
+            
+            if is_vl_model:
+                print(f"[Local VLM] Loading as VL model using Qwen2_5_VLForConditionalGeneration...")
+                from transformers import Qwen2_5_VLForConditionalGeneration
+                processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    repo_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+            else:
+                print(f"[Local VLM] Loading as Standard Causal LM...")
+                processor = AutoTokenizer.from_pretrained(repo_id, trust_remote_code=True)
+                model = AutoModelForCausalLM.from_pretrained(
+                    repo_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+                
             # Fix missing lm_head.weight by manually tying weights (since Qwen has tied embeddings)
             try:
                 model.tie_weights()
@@ -138,13 +156,22 @@ def call_local_inference(prompt: str, model_name: str, temperature: float = 0.7,
             messages, tokenize=False, add_generation_prompt=True
         )
         
-        inputs = processor(
-            text=[text],
-            images=None,
-            videos=None,
-            padding=True,
-            return_tensors="pt"
-        )
+        # Check if processor is standard tokenizer or VLM processor
+        is_vl_proc = "vl" in type(processor).__name__.lower() or "processor" in type(processor).__name__.lower()
+        if is_vl_proc:
+            inputs = processor(
+                text=[text],
+                images=None,
+                videos=None,
+                padding=True,
+                return_tensors="pt"
+            )
+        else:
+            inputs = processor(
+                [text],
+                padding=True,
+                return_tensors="pt"
+            )
         inputs = inputs.to(device)
         
         # Determine sampling vs greedy search
