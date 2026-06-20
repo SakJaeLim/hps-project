@@ -135,6 +135,7 @@ def call_local_inference(prompt: str, model_name: str) -> str | None:
         output_text = processor.batch_decode(
             generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )
+        print(f"[Local VLM] Model '{model_name}' output: {output_text[0][:200]}...")
         return output_text[0]
     except Exception as e:
         print(f"[Local VLM] Local inference error: {e}")
