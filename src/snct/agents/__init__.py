@@ -1,1 +1,1 @@
-"""SNCT decision-support platform."""
+"""decision-support platform."""

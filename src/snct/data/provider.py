@@ -30,8 +30,8 @@ class SimulatedProvider(DataProvider):
             Container(id="CNTR-002", weight_ton=18.0, size="40", type="RF", pod="ROTTERDAM", reefer=True)
         ]
 
-class SNCTLiveProvider(DataProvider):
-    """실데이터(SNCT 운영사) → 캐노니컬 스키마. specs/06_data_sources 참조.
+class LiveProvider(DataProvider):
+    """실데이터(운영사) → 캐노니컬 스키마. specs/06_data_sources 참조.
     원천 파서는 src/snct/data/sources/* 에 둔다. (EDIFACT/CSV/XML/PDF)"""
     # 정형 원천 → 캐노니컬
     def load_baplie(self, path): raise NotImplementedError("EDIFACT BAPLIE → Container·Slot·ASSIGNED_TO")
@@ -51,4 +51,4 @@ class SNCTLiveProvider(DataProvider):
         return [Container(id="CNTR-001", weight_ton=24.5, size="40", type="GP", pod="LAX")]
 
 def get_provider(name: str = "simulated") -> DataProvider:
-    return {"simulated": SimulatedProvider, "snct_live": SNCTLiveProvider}[name]()
+    return {"simulated": SimulatedProvider, "live": LiveProvider}[name]()

@@ -11,7 +11,7 @@ app = FastAPI(title="PortSLM API Server", version="2.0")
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-BASE_DIR = Path(os.environ.get("SNCT_BASE_DIR", PROJECT_ROOT))
+BASE_DIR = Path(os.environ.get("HPS_BASE_DIR", PROJECT_ROOT))
 EVAL_CSV_PATH = BASE_DIR / "data" / "simulated" / "eval_report.csv"
 FEEDBACK_LOG_PATH = BASE_DIR / "data" / "simulated" / "feedback_log.jsonl"
 

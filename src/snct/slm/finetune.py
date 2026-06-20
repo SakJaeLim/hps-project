@@ -184,9 +184,9 @@ def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruc
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated\train.jsonl")
-    parser.add_argument("--val-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated\val.jsonl")
-    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-lora")
+    parser.add_argument("--train-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\data\simulated\train.jsonl")
+    parser.add_argument("--val-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\data\simulated\val.jsonl")
+    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\outputs\portslm-lora")
     parser.add_argument("--model-id", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
     parser.add_argument("--smoke-run", action="store_true")
     parser.add_argument("--no-qlora", action="store_false", dest="use_qlora")
