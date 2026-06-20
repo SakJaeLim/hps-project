@@ -144,9 +144,9 @@ def call_api(endpoint: str, data: dict = None, method: str = "POST") -> dict | N
     """Make HTTP requests to the backend API server."""
     try:
         if method == "POST":
-            r = requests.post(f"{API_URL}{endpoint}", json=data, timeout=30.0)
+            r = requests.post(f"{API_URL}{endpoint}", json=data, timeout=180.0)
         else:
-            r = requests.get(f"{API_URL}{endpoint}", timeout=30.0)
+            r = requests.get(f"{API_URL}{endpoint}", timeout=180.0)
         if r.status_code == 200:
             return r.json()
         else:

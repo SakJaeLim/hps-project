@@ -11,6 +11,17 @@ load_dotenv()  # .env 파일에서 환경변수 로드
 
 app = FastAPI(title="PortSLM API Server", version="2.0")
 
+@app.on_event("startup")
+def preload_models():
+    """Start pre-loading models in the background on startup to prevent request timeouts."""
+    import threading
+    print("[Startup] Starting background pre-loading of local VLM models...")
+    thread = threading.Thread(
+        target=lambda: (get_local_model("base"), get_local_model("portslm")),
+        daemon=True
+    )
+    thread.start()
+
 # Paths
 cwd = os.getcwd()
 if os.path.exists(os.path.join(cwd, "src", "snct")):
