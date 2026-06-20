@@ -75,7 +75,8 @@ def get_local_model(model_name: str):
             device = "cuda" if torch.cuda.is_available() else "cpu"
             dtype = torch.bfloat16 if device == "cuda" else torch.float32
             
-            processor = AutoProcessor.from_pretrained(repo_id)
+            # Always load the processor from the base model since custom fine-tuned repos often miss preprocessor_config.json
+            processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
             model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 repo_id,
                 torch_dtype=dtype,
