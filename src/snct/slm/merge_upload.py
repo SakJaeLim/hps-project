@@ -47,6 +47,30 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     merged_model.save_pretrained(output_dir)
     print("Merge complete.")
     
+    # Run a quick local test inference to verify weights inside VESSL AI before uploading
+    try:
+        print("Running verification test inference inside VESSL AI...")
+        test_prompt = "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명해줘."
+        messages = [{"role": "user", "content": [{"type": "text", "text": test_prompt}]}]
+        if is_vl:
+            test_text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = processor(text=[test_text], images=None, padding=True, return_tensors="pt").to(merged_model.device)
+        else:
+            test_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer([test_text], padding=True, return_tensors="pt").to(merged_model.device)
+            
+        with torch.no_grad():
+            gen_ids = merged_model.generate(**inputs, max_new_tokens=100, do_sample=False)
+        
+        target_processor = processor if is_vl else tokenizer
+        gen_ids_trimmed = [out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, gen_ids)]
+        test_output = target_processor.batch_decode(gen_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        print("\n=== VERIFICATION TEST INFERENCE RESULT ===")
+        print(test_output)
+        print("==========================================\n")
+    except Exception as test_err:
+        print(f"Verification test inference failed: {test_err}")
+    
     if upload_repo:
         from huggingface_hub import HfApi
         print(f"Uploading merged model to Hugging Face: {upload_repo}")
