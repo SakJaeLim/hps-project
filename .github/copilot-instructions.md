@@ -1,4 +1,4 @@
-# Copilot / AI 작업 지침 — SNCT Decision Platform
+# Copilot / AI 작업 지침 — Decision Platform
 
 이 저장소는 **AI-Native SDD**로 개발한다. AI(에이전트)는 아래를 항상 준수한다.
 

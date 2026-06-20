@@ -12,7 +12,7 @@ STOWAGE_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT �
 SAFETY_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT 데이터 수집_SLM 파인튜닝", "Safety SFT", "portslm_safety_sft_sample.jsonl")
 SLOT_CSV_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "강화학습 결과 자료", "single_bay_6pod_ppo_v13_3way_RDB_LPG_seed42", "rdb", "slot_assignment.csv")
 
-OUT_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated"
+OUT_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\data\simulated"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 def load_jsonl(path):
@@ -45,7 +45,7 @@ def generate_recommendations_from_csv(csv_path):
     # Larger number = further = must be stacked bottom.
     
     for i, r in enumerate(rows):
-        container_id = r.get("container_id", f"SNCT-CNTR-{100000+i}")
+        container_id = r.get("container_id", f"CNTR-{100000+i}")
         pod_name = r.get("pod_name", "Unknown")
         pod_id = int(r.get("pod_id", "3"))
         weight = float(r.get("weight_mt", "15.0"))

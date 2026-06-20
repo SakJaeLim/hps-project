@@ -50,8 +50,8 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
-    parser.add_argument("--adapter-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-lora")
-    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged")
+    parser.add_argument("--adapter-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\outputs\portslm-lora")
+    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\outputs\portslm-merged")
     parser.add_argument("--upload-repo", type=str, default=None)
     parser.add_argument("--hf-token", type=str, default=None)
     args = parser.parse_args()

@@ -7,7 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-BASE_DIR = Path(os.environ.get("SNCT_BASE_DIR", PROJECT_ROOT))
+BASE_DIR = Path(os.environ.get("HPS_BASE_DIR", PROJECT_ROOT))
 
 def test_gen_sft_output_exists():
     # Verify that Phase 2 data files exist and have correct formats

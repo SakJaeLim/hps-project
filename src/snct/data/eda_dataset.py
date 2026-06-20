@@ -2,7 +2,7 @@ import os
 import json
 import collections
 
-DATA_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated"
+DATA_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\data\simulated"
 REPORT_PATH = os.path.join(DATA_DIR, "eda_report.txt")
 
 def analyze_file(filename):
