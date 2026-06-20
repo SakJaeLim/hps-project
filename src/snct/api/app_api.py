@@ -3,16 +3,17 @@ import time
 import csv
 import json
 import statistics
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI(title="PortSLM API Server", version="2.0")
 
 # Paths
-BASE_DIR = os.environ.get("SNCT_BASE_DIR",
-    r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform")
-EVAL_CSV_PATH = os.path.join(BASE_DIR, "data", "simulated", "eval_report.csv")
-FEEDBACK_LOG_PATH = os.path.join(BASE_DIR, "data", "simulated", "feedback_log.jsonl")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+BASE_DIR = Path(os.environ.get("SNCT_BASE_DIR", PROJECT_ROOT))
+EVAL_CSV_PATH = BASE_DIR / "data" / "simulated" / "eval_report.csv"
+FEEDBACK_LOG_PATH = BASE_DIR / "data" / "simulated" / "feedback_log.jsonl"
 
 # HF Spaces URL for real model inference (set via environment variable)
 HF_SPACE_URL = os.environ.get("HF_SPACE_URL", "")
@@ -284,7 +285,7 @@ def feedback(req: FeedbackRequest) -> dict:
         if h["prompt"] == req.qid:
             h["feedback"] = "👍" if req.vote == "up" else "👎" if req.vote == "down" else req.vote
             break
-    os.makedirs(os.path.dirname(FEEDBACK_LOG_PATH), exist_ok=True)
+    FEEDBACK_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(FEEDBACK_LOG_PATH, 'a', encoding='utf-8') as f:
         f.write(json.dumps({"prompt": req.qid, "vote": req.vote, "time": time.time()}) + "\n")
     return {"status": "ok"}

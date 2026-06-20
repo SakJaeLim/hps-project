@@ -1,19 +1,20 @@
 import os
 import sys
 import json
-import pytest
+from pathlib import Path
 
 # Ensure src is in sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
+BASE_DIR = Path(os.environ.get("SNCT_BASE_DIR", PROJECT_ROOT))
 
 def test_gen_sft_output_exists():
     # Verify that Phase 2 data files exist and have correct formats
-    data_dir = os.path.join(BASE_DIR, "data", "simulated")
-    train_file = os.path.join(data_dir, "train.jsonl")
-    val_file = os.path.join(data_dir, "val.jsonl")
-    golden_file = os.path.join(data_dir, "eval_golden.jsonl")
+    data_dir = BASE_DIR / "data" / "simulated"
+    train_file = data_dir / "train.jsonl"
+    val_file = data_dir / "val.jsonl"
+    golden_file = data_dir / "eval_golden.jsonl"
     
     assert os.path.exists(train_file)
     assert os.path.exists(val_file)
@@ -32,15 +33,15 @@ def test_eval_metrics_run():
     # Import eval metrics
     from snct.eval.eval_metrics import run_evaluation
     
-    golden_file = os.path.join(BASE_DIR, "data", "simulated", "eval_golden.jsonl")
-    report_csv = os.path.join(BASE_DIR, "data", "simulated", "test_eval_report.csv")
+    golden_file = BASE_DIR / "data" / "simulated" / "eval_golden.jsonl"
+    report_csv = BASE_DIR / "data" / "simulated" / "test_eval_report.csv"
     
     # Run offline evaluation with mock (by passing empty/none model path)
     run_evaluation(
-        golden_path=golden_file,
+        golden_path=str(golden_file),
         base_model_path=None,
         ft_model_path=None,
-        output_csv=report_csv
+        output_csv=str(report_csv)
     )
     
     assert os.path.exists(report_csv)
