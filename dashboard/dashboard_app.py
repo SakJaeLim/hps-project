@@ -210,7 +210,7 @@ with st.sidebar:
     # Global Settings (SCR-05 Settings)
     st.session_state.active_model = st.selectbox(
         "사용 모델 선택",
-        ["PortSLM (Fine-Tuned)", "Qwen2.5-1.5B (Base)", "PortSLM (INT4 Quantized)"]
+        ["PortSLM (Fine-Tuned)", "Qwen2.5-VL-3B (Base)", "PortSLM (INT4 Quantized)"]
     )
     
     st.session_state.temperature = st.slider("Temperature", 0.0, 1.5, st.session_state.temperature, 0.1)
@@ -268,11 +268,11 @@ if page == "홈 (Home)":
             <h4>모델 정보 카드</h4>
             <hr style="margin: 10px 0;">
             <table style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
-                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">베이스</td><td style="color:#4a5568;">Qwen2.5-1.5B-Instruct</td></tr>
+                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">베이스</td><td style="color:#4a5568;">Qwen2.5-VL-3B</td></tr>
                 <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">LoRA 어댑터</td><td style="color:#4a5568;">portslm-lora-v1</td></tr>
                 <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">양자화</td><td style="color:#4a5568;">INT4 GGUF 가용</td></tr>
                 <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">학습인프라</td><td style="color:#4a5568;">VESSL AI GPU</td></tr>
-                <tr><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">학습일시</td><td style="color:#4a5568;">2026-06-22</td></tr>
+                <tr><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">학습일시</td><td style="color:#4a5568;">2026-06-13</td></tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
@@ -359,7 +359,7 @@ elif page == "모델 비교 (前/後)":
         with col_base:
             st.markdown(f"""
             <div class="card" style="border-top: 5px solid #aeb6c2;">
-                <h4 style="color: #69788f !important;">Qwen2.5-1.5B (베이스 모델)</h4>
+                <h4 style="color: #69788f !important;">Qwen2.5-VL-3B (베이스 모델)</h4>
                 <p style="font-size: 13.5px; color: #2d3748; line-height: 1.65;">{base_text}</p>
                 <div style="background:#f7fafc; padding:10px; border-radius:6px; font-size:12px; color:#a0aec0; border:1px solid #e2e8f0; text-align:center;">
                     ⚠️ 모호한 제약 적용, 전문용어 인용 부족
@@ -424,7 +424,17 @@ elif page == "평가 대시보드":
                 metrics["quant"]["ft_term"]
             ]
         })
-        st.bar_chart(quant_df, x="지표", y="성능 (%)", color="모델", stack=False)
+        import altair as alt
+        chart = alt.Chart(quant_df).mark_bar().encode(
+            x=alt.X("모델:N", title=None),
+            y=alt.Y("성능 (%):Q", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color("모델:N", scale=alt.Scale(
+                domain=["베이스", "파인튜닝(PortSLM)"],
+                range=["#aeb6c2", "#1F3864"]
+            )),
+            column=alt.Column("지표:N", title=None)
+        ).properties(width=130)
+        st.altair_chart(chart, use_container_width=False)
         
     with col2:
         st.markdown("### 2. 정성 지표 비교 (LLM-as-judge)")
