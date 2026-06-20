@@ -1,7 +1,7 @@
 import os
 import argparse
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoProcessor
 from peft import PeftModel
 
 def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=None):
@@ -22,6 +22,12 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         trust_remote_code=True
     )
     
+    # Workaround for tied embeddings bug in PEFT merge
+    if hasattr(base.config, "tie_word_embeddings") and base.config.tie_word_embeddings:
+        print("Model uses tied embeddings, applying lm_head workaround...")
+        if hasattr(base, "lm_head") and hasattr(base.model, "embed_tokens"):
+            base.lm_head.weight = base.model.embed_tokens.weight
+            
     print(f"Loading adapter from: {adapter_path}")
     model = PeftModel.from_pretrained(base, adapter_path)
     
@@ -29,9 +35,16 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     merged_model = model.merge_and_unload()
     
     print(f"Saving merged model to: {output_dir}")
-    tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+    try:
+        processor = AutoProcessor.from_pretrained(base_model_id, trust_remote_code=True)
+        processor.save_pretrained(output_dir)
+    except Exception as e:
+        print(f"AutoProcessor not found, trying AutoTokenizer... ({e})")
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+        tokenizer.save_pretrained(output_dir)
+        
     merged_model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
     print("Merge complete.")
     
     if upload_repo:
@@ -50,8 +63,8 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
-    parser.add_argument("--adapter-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\outputs\portslm-lora")
-    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\decision-platform\outputs\portslm-merged")
+    parser.add_argument("--adapter-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-lora")
+    parser.add_argument("--output-dir", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged")
     parser.add_argument("--upload-repo", type=str, default=None)
     parser.add_argument("--hf-token", type=str, default=None)
     args = parser.parse_args()
