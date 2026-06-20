@@ -9,8 +9,13 @@ from pydantic import BaseModel
 app = FastAPI(title="PortSLM API Server", version="2.0")
 
 # Paths
-BASE_DIR = os.environ.get("SNCT_BASE_DIR",
-    r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform")
+cwd = os.getcwd()
+if os.path.exists(os.path.join(cwd, "src", "snct")):
+    default_base = cwd
+else:
+    default_base = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
+
+BASE_DIR = os.environ.get("SNCT_BASE_DIR", default_base)
 EVAL_CSV_PATH = os.path.join(BASE_DIR, "data", "simulated", "eval_report.csv")
 FEEDBACK_LOG_PATH = os.path.join(BASE_DIR, "data", "simulated", "feedback_log.jsonl")
 

@@ -6,13 +6,34 @@ import random
 # Set random seed for reproducibility
 random.seed(42)
 
-# Absolute paths based on workspace
-BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트"
-STOWAGE_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT 데이터 수집_SLM 파인튜닝", "적재계획 SFT", "portslm_stowage_sft_sample.jsonl")
-SAFETY_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT 데이터 수집_SLM 파인튜닝", "Safety SFT", "portslm_safety_sft_sample.jsonl")
-SLOT_CSV_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "강화학습 결과 자료", "single_bay_6pod_ppo_v13_3way_RDB_LPG_seed42", "rdb", "slot_assignment.csv")
+# Resolve paths dynamically to support both local workspace and Google Drive fallback
+cwd = os.getcwd()
+STOWAGE_SEED_PATH = None
+SAFETY_SEED_PATH = None
+SLOT_CSV_PATH = None
+OUT_DIR = None
 
-OUT_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated"
+# If running in local workspace, find files under "유홍성"
+if os.path.exists(os.path.join(cwd, "유홍성")):
+    def find_local_path(filename):
+        for root, dirs, files in os.walk(os.path.join(cwd, "유홍성")):
+            for f in files:
+                if f.lower() == filename.lower():
+                    return os.path.join(root, f)
+        return None
+    STOWAGE_SEED_PATH = find_local_path("portslm_stowage_sft_sample.jsonl")
+    SAFETY_SEED_PATH = find_local_path("portslm_safety_sft_sample.jsonl")
+    SLOT_CSV_PATH = find_local_path("slot_assignment.csv")
+    OUT_DIR = os.path.join(cwd, "data", "simulated")
+
+# Fallback to Google Drive if local search failed
+if not STOWAGE_SEED_PATH or not os.path.exists(STOWAGE_SEED_PATH):
+    BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트"
+    STOWAGE_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT 데이터 수집_SLM 파인튜닝", "적재계획 SFT", "portslm_stowage_sft_sample.jsonl")
+    SAFETY_SEED_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "SFT 데이터 수집_SLM 파인튜닝", "Safety SFT", "portslm_safety_sft_sample.jsonl")
+    SLOT_CSV_PATH = os.path.join(BASE_DIR, "유홍성", "자료 수집", "강화학습 결과 자료", "single_bay_6pod_ppo_v13_3way_RDB_LPG_seed42", "rdb", "slot_assignment.csv")
+    OUT_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated"
+
 os.makedirs(OUT_DIR, exist_ok=True)
 
 def load_jsonl(path):

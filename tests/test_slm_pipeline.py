@@ -6,7 +6,12 @@ import pytest
 # Ensure src is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
+# Try current working directory first if it looks like workspace root
+cwd = os.getcwd()
+if os.path.exists(os.path.join(cwd, "tests")):
+    BASE_DIR = cwd
+else:
+    BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
 
 def test_gen_sft_output_exists():
     # Verify that Phase 2 data files exist and have correct formats

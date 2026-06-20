@@ -3,6 +3,7 @@ gymnasium
 numpy
 pandas
 torch
+stable-baselines3
 
 # --- Domain SLM / RAG (Track 1) ---
 transformers
@@ -13,6 +14,7 @@ scikit-learn
 duckdb
 sqlalchemy
 requests
+rouge
 
 # --- Serving / API / UI ---
 fastapi
