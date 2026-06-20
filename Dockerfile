@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code and scripts
 COPY src/ /app/src/
 COPY dashboard/ /app/dashboard/
-COPY 유홍성/ /app/유홍성/
+COPY data/ /app/data/
 COPY start.sh /app/start.sh
 
 # Grant execution rights on entrypoint script
