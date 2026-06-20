@@ -149,8 +149,10 @@ def call_api(endpoint: str, data: dict = None, method: str = "POST") -> dict | N
             r = requests.get(f"{API_URL}{endpoint}", timeout=30.0)
         if r.status_code == 200:
             return r.json()
-    except Exception:
-        pass
+        else:
+            print(f"[Dashboard API] Error: API returned status {r.status_code} for {endpoint}")
+    except Exception as e:
+        print(f"[Dashboard API] Request failed for {endpoint}: {e}")
     return None
 
 # Local Session State Initializations
