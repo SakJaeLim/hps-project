@@ -121,10 +121,15 @@ def generate(req: GenerateRequest) -> dict:
 
     # Try real model inference first
     ans = call_hf_inference(req.prompt, req.model)
+    source = "hf_inference"
 
     # Fallback to mock if HF API unavailable
     if not ans:
+        print(f"[API] /generate - Hugging Face API failed or returned empty. Falling back to Mock (Model: {req.model})")
         ans = run_mock_inference(req.model, req.prompt)
+        source = "mock"
+    else:
+        print(f"[API] /generate - Hugging Face inference SUCCEEDED (Model: {req.model})")
 
     latency = int((time.time() - start_time) * 1000)
 
@@ -145,15 +150,32 @@ def generate(req: GenerateRequest) -> dict:
         "text": ans,
         "terms": terms_used,
         "latency_ms": latency,
-        "source": "hf_inference" if HF_SPACE_URL or os.environ.get("HF_TOKEN") else "mock"
+        "source": source
     }
 
 
 @app.post("/compare")
 def compare(req: CompareRequest) -> dict:
     """Compare answers between base and fine-tuned models."""
-    base_ans = call_hf_inference(req.prompt, "base") or run_mock_inference("base", req.prompt)
-    ft_ans = call_hf_inference(req.prompt, "portslm") or run_mock_inference("portslm", req.prompt)
+    print(f"[API] /compare - Starting comparison for prompt: {req.prompt[:30]}...")
+    
+    base_ans = call_hf_inference(req.prompt, "base")
+    base_source = "hf_inference"
+    if not base_ans:
+        print("[API] /compare - Base model Hugging Face API failed. Falling back to Mock.")
+        base_ans = run_mock_inference("base", req.prompt)
+        base_source = "mock"
+    else:
+        print("[API] /compare - Base model Hugging Face API SUCCEEDED.")
+
+    ft_ans = call_hf_inference(req.prompt, "portslm")
+    ft_source = "hf_inference"
+    if not ft_ans:
+        print("[API] /compare - Fine-tuned model Hugging Face API failed. Falling back to Mock.")
+        ft_ans = run_mock_inference("portslm", req.prompt)
+        ft_source = "mock"
+    else:
+        print("[API] /compare - Fine-tuned model Hugging Face API SUCCEEDED.")
 
     terms_used = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG",
                                       "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"]
@@ -170,7 +192,9 @@ def compare(req: CompareRequest) -> dict:
     return {
         "base_text": base_ans,
         "finetuned_text": ft_ans,
-        "terms": terms_used
+        "terms": terms_used,
+        "base_source": base_source,
+        "finetuned_source": ft_source
     }
 
 
