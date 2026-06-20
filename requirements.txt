@@ -9,6 +9,7 @@ stable-baselines3
 transformers
 peft
 accelerate
+qwen-vl-utils
 networkx
 scikit-learn
 duckdb
