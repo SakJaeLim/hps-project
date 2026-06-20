@@ -242,7 +242,7 @@ if page == "홈 (Home)":
         <div class="card">
             <h3>서비스 소개</h3>
             <p style="color: #4a5568; line-height: 1.7; font-size: 15px;">
-                인천신항 SNCT 컨테이너 터미널 본선 적재계획(Stowage Planning) 및 터미널 안전 규정(Safety SOP)에 특화된 
+                컨테이너 터미널 본선 적재계획(Stowage Planning) 및 터미널 안전 규정(Safety SOP)에 특화된 
                 소형언어모델(SLM) 파인튜닝 어시스턴트입니다.<br><br>
                 본 플랫폼은 중량 배분(Heavy-Down), 위험물(DG) 및 냉동(Reefer) 특수 컨테이너 격리 규칙을 준수하고, 
                 규정 조항을 정확하게 근거로 제시하는 설명 가능 지능(explainable AI)을 제공합니다.
@@ -315,7 +315,7 @@ elif page == "도메인 Q&A":
         })
         
     # Render chat bubbles
-    for chat in st.session_state.chat_history:
+    for idx, chat in enumerate(st.session_state.chat_history):
         if chat["role"] == "user":
             st.markdown(f'<div class="chat-bubble chat-user">🧑 <b>사용자:</b> {chat["content"]}</div>', unsafe_allow_html=True)
         else:
@@ -326,11 +326,11 @@ elif page == "도메인 Q&A":
             # Feedback buttons
             col_feed1, col_feed2, col_feed3 = st.columns([1, 1, 10])
             with col_feed1:
-                if st.button("👍 Good", key=f"feed_up_{hash(chat['content'])}"):
+                if st.button("👍 Good", key=f"feed_up_{idx}"):
                     call_api("/feedback", {"qid": user_query, "vote": "up"})
                     st.success("피드백 반영 완료!")
             with col_feed2:
-                if st.button("👎 Bad", key=f"feed_down_{hash(chat['content'])}"):
+                if st.button("👎 Bad", key=f"feed_down_{idx}"):
                     call_api("/feedback", {"qid": user_query, "vote": "down"})
                     st.warning("피드백 반영 완료.")
 
