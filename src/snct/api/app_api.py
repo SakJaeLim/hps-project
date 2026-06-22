@@ -6,8 +6,22 @@ import statistics
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()  # .env 파일에서 환경변수 로드
 
 app = FastAPI(title="PortSLM API Server", version="2.0")
+
+@app.on_event("startup")
+def preload_models():
+    """Start pre-loading models in the background on startup to prevent request timeouts."""
+    import threading
+    print("[Startup] Starting background pre-loading of local VLM models...")
+    thread = threading.Thread(
+        target=lambda: (get_local_model("base"), get_local_model("portslm")),
+        daemon=True
+    )
+    thread.start()
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +44,9 @@ class GenerateRequest(BaseModel):
 
 class CompareRequest(BaseModel):
     prompt: str
+    temperature: float = 0.7
+    max_tokens: int = 512
+    top_p: float = 0.9
     seed: int = 42
 
 class FeedbackRequest(BaseModel):
@@ -43,6 +60,139 @@ class PlanRequest(BaseModel):
 
 # In-memory history
 history = []
+
+# Global dictionary to cache local models
+local_models = {}
+local_processors = {}
+
+def get_local_model(model_name: str):
+    """Lazy load local model onto GPU/CPU."""
+    global local_models, local_processors
+    
+    m_key = "base" if "base" in model_name.lower() else "portslm"
+    if m_key not in local_models:
+        if m_key == "base":
+            repo_id = "Qwen/Qwen2.5-VL-3B-Instruct"
+        else:
+            repo_id = "AICPADSLIM/PortSLM-Qwen2.5-VL-3B"
+            
+        print(f"[Local VLM] Loading model {repo_id}...")
+        
+        try:
+            import torch
+            from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer, AutoProcessor
+            
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            dtype = torch.bfloat16 if device == "cuda" else torch.float32
+            
+            print(f"[Local VLM] Fetching model configuration for {repo_id}...")
+            config = AutoConfig.from_pretrained(repo_id, trust_remote_code=True)
+            model_type = getattr(config, "model_type", "").lower()
+            is_vl_model = "vl" in model_type or "vision" in model_type
+            
+            if is_vl_model:
+                print(f"[Local VLM] Loading as VL model using Qwen2_5_VLForConditionalGeneration...")
+                from transformers import Qwen2_5_VLForConditionalGeneration
+                processor = AutoProcessor.from_pretrained("Qwen/Qwen2.5-VL-3B-Instruct")
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    repo_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+            else:
+                print(f"[Local VLM] Loading as Standard Causal LM...")
+                processor = AutoTokenizer.from_pretrained(repo_id, trust_remote_code=True)
+                model = AutoModelForCausalLM.from_pretrained(
+                    repo_id,
+                    torch_dtype=dtype,
+                    device_map="auto",
+                    trust_remote_code=True
+                )
+                
+            # Fix missing lm_head.weight by manually tying weights (since Qwen has tied embeddings)
+            try:
+                model.tie_weights()
+                print("[Local VLM] Tying model weights succeeded.")
+            except Exception as tie_err:
+                print(f"[Local VLM] Warning tying weights: {tie_err}")
+
+            local_models[m_key] = model
+            local_processors[m_key] = processor
+            print(f"[Local VLM] Successfully loaded {repo_id} on {device}")
+        except Exception as e:
+            print(f"[Local VLM] Error loading model {repo_id}: {e}")
+            return None, None
+            
+    return local_models[m_key], local_processors[m_key]
+
+
+def call_local_inference(prompt: str, model_name: str, temperature: float = 0.7, max_tokens: int = 512, top_p: float = 0.9) -> str | None:
+    """Run inference using locally loaded Qwen2.5-VL model."""
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        model, processor = get_local_model(model_name)
+        if not model or not processor:
+            return None
+            
+        print(f"[Local VLM] Running local inference on {device} (Model: {model_name}, max_tokens: {max_tokens}, temp: {temperature})...")
+        
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt}
+                ]
+            }
+        ]
+        
+        text = processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        
+        # Check if processor is standard tokenizer or VLM processor
+        is_vl_proc = "vl" in type(processor).__name__.lower() or "processor" in type(processor).__name__.lower()
+        if is_vl_proc:
+            inputs = processor(
+                text=[text],
+                images=None,
+                videos=None,
+                padding=True,
+                return_tensors="pt"
+            )
+        else:
+            inputs = processor(
+                [text],
+                padding=True,
+                return_tensors="pt"
+            )
+        inputs = inputs.to(device)
+        
+        # Determine sampling vs greedy search
+        do_sample = temperature > 0.0
+        
+        with torch.no_grad():
+            generated_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_tokens,
+                temperature=temperature if do_sample else None,
+                top_p=top_p if do_sample else None,
+                do_sample=do_sample
+            )
+            
+        generated_ids_trimmed = [
+            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        output_text = processor.batch_decode(
+            generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )
+        print(f"[Local VLM] Model '{model_name}' output: {output_text[0][:200]}...")
+        return output_text[0]
+    except Exception as e:
+        print(f"[Local VLM] Local inference error: {e}")
+        return None
 
 
 def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
@@ -64,7 +214,7 @@ def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
         hf_token = os.environ.get("HF_TOKEN", "")
         if hf_token and "portslm" in model_name.lower():
             r = req.post(
-                f"https://api-inference.huggingface.co/models/{HF_MODEL_ID}",
+                f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_ID}",
                 headers={"Authorization": f"Bearer {hf_token}"},
                 json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.7}},
                 timeout=120,
@@ -109,15 +259,25 @@ def run_mock_inference(model_name: str, prompt: str) -> str:
 
 @app.post("/generate")
 def generate(req: GenerateRequest) -> dict:
-    """Generate an answer based on user prompt using HF inference or fallback mock."""
+    """Generate an answer based on user prompt using local model, HF inference, or fallback mock."""
     start_time = time.time()
 
-    # Try real model inference first
-    ans = call_hf_inference(req.prompt, req.model)
+    # Try local model first
+    ans = call_local_inference(req.prompt, req.model, req.temperature, req.max_tokens, req.top_p)
+    source = "local_vlm"
 
-    # Fallback to mock if HF API unavailable
+    # Try HF Inference API second
     if not ans:
+        ans = call_hf_inference(req.prompt, req.model)
+        source = "hf_inference"
+
+    # Fallback to mock if both unavailable
+    if not ans:
+        print(f"[API] /generate - Local model and HF API failed. Falling back to Mock (Model: {req.model})")
         ans = run_mock_inference(req.model, req.prompt)
+        source = "mock"
+    else:
+        print(f"[API] /generate - Inference SUCCEEDED (Source: {source}, Model: {req.model})")
 
     latency = int((time.time() - start_time) * 1000)
 
@@ -138,15 +298,40 @@ def generate(req: GenerateRequest) -> dict:
         "text": ans,
         "terms": terms_used,
         "latency_ms": latency,
-        "source": "hf_inference" if HF_SPACE_URL or os.environ.get("HF_TOKEN") else "mock"
+        "source": source
     }
 
 
 @app.post("/compare")
 def compare(req: CompareRequest) -> dict:
-    """Compare answers between base and fine-tuned models."""
-    base_ans = call_hf_inference(req.prompt, "base") or run_mock_inference("base", req.prompt)
-    ft_ans = call_hf_inference(req.prompt, "portslm") or run_mock_inference("portslm", req.prompt)
+    """Compare answers between base and fine-tuned models locally or via HF."""
+    print(f"[API] /compare - Starting comparison for prompt: {req.prompt[:30]}...")
+    
+    # 1. Base Model Inference
+    base_ans = call_local_inference(req.prompt, "base", req.temperature, req.max_tokens, req.top_p)
+    base_source = "local_vlm"
+    if not base_ans:
+        base_ans = call_hf_inference(req.prompt, "base")
+        base_source = "hf_inference"
+    if not base_ans:
+        print("[API] /compare - Base model local & HF failed. Falling back to Mock.")
+        base_ans = run_mock_inference("base", req.prompt)
+        base_source = "mock"
+    else:
+        print(f"[API] /compare - Base model SUCCEEDED (Source: {base_source})")
+
+    # 2. Fine-Tuned Model Inference
+    ft_ans = call_local_inference(req.prompt, "portslm", req.temperature, req.max_tokens, req.top_p)
+    ft_source = "local_vlm"
+    if not ft_ans:
+        ft_ans = call_hf_inference(req.prompt, "portslm")
+        ft_source = "hf_inference"
+    if not ft_ans:
+        print("[API] /compare - Fine-tuned model local & HF failed. Falling back to Mock.")
+        ft_ans = run_mock_inference("portslm", req.prompt)
+        ft_source = "mock"
+    else:
+        print(f"[API] /compare - Fine-tuned model SUCCEEDED (Source: {ft_source})")
 
     terms_used = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG",
                                       "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"]
@@ -163,7 +348,9 @@ def compare(req: CompareRequest) -> dict:
     return {
         "base_text": base_ans,
         "finetuned_text": ft_ans,
-        "terms": terms_used
+        "terms": terms_used,
+        "base_source": base_source,
+        "finetuned_source": ft_source
     }
 
 

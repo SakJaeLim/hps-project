@@ -1,0 +1,27 @@
+name: portslm-sft-run
+resources:
+  cluster: vessl-gcp-oregon
+  preset: gpu-l4-small  # Qwen2.5-1.5B/3B QLoRA runs easily on an L4 GPU (24GB VRAM)
+image: quay.io/vessl-ai/torch:2.8.0-cuda12.8
+import:
+  /workspace/code: git://github.com/SakJaeLim/hps-project@sunny
+run:
+  - command: |
+      cd /workspace/code
+      pip install "transformers==4.55.2" "trl==0.21.0" "peft==0.17.0" datasets accelerate bitsandbytes qwen-vl-utils wandb
+      export PYTHONPATH=/workspace/code/src
+      # 1. Start SFT Fine-tuning
+      python src/snct/slm/finetune.py \
+        --model-id "Qwen/Qwen2.5-VL-3B-Instruct" \
+        --train-path "data/simulated/train.jsonl" \
+        --val-path "data/simulated/val.jsonl" \
+        --output-dir "/workspace/output/portslm-lora"
+      # 2. Merge weights and upload to Hugging Face
+      python src/snct/slm/merge_upload.py \
+        --base-model "Qwen/Qwen2.5-VL-3B-Instruct" \
+        --adapter-path "/workspace/output/portslm-lora" \
+        --output-dir "/workspace/output/portslm-merged" \
+        --upload-repo "AICPADSLIM/PortSLM-Qwen2.5-VL-3B"
+env:
+  WANDB_API_KEY: ${secret:wandb-key}
+  HF_TOKEN: ${secret:hf-token}

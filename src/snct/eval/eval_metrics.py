@@ -233,6 +233,15 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     print(f"FT Average Term Rate: {statistics.mean(ft_terms):.4f}")
 
 if __name__ == "__main__":
+    # Resolve paths dynamically
+    cwd = os.getcwd()
+    if os.path.exists(os.path.join(cwd, "src", "snct")):
+        default_base = cwd
+        default_ft = os.path.join(cwd, "outputs", "portslm-merged")
+    else:
+        default_base = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
+        default_ft = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged"
+        
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden-path", type=str, default=str(Path(__file__).resolve().parents[3] / "data" / "simulated" / "eval_golden.jsonl"))
     parser.add_argument("--base-model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")

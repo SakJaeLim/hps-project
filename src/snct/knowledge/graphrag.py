@@ -1,9 +1,20 @@
 """GraphRAG / text2Cypher (온톨로지) — 지식그래프 기반 Q&A.
 NetworkX 그래프에서 키워드 기반 서브그래프 탐색 + 템플릿 매칭."""
-import networkx as nx
+try:
+    import networkx as nx
+    NETWORKX_AVAILABLE = True
+except ImportError:
+    NETWORKX_AVAILABLE = False
 
 # 도메인 지식 그래프 (항만 용어 관계)
-_KG = nx.DiGraph()
+if NETWORKX_AVAILABLE:
+    _KG = nx.DiGraph()
+else:
+    class DummyKG:
+        def add_node(self, *args, **kwargs): pass
+        def add_edge(self, *args, **kwargs): pass
+        def nodes(self, data=False): return []
+    _KG = DummyKG()
 
 # 노드: 항만 도메인 핵심 개념
 _concepts = [
@@ -101,6 +112,8 @@ def _keyword_search(question: str) -> list[dict]:
 def ask(question: str) -> dict:
     """→ {answer, sources:[{type:'graph', ref, snippet}]}.
     템플릿 매칭 우선 → 미스 시 키워드 기반 서브그래프 탐색."""
+    if not NETWORKX_AVAILABLE:
+        return {"answer": "네트워크 분석 라이브러리(NetworkX)가 없어 지식 그래프 검색을 생략합니다.", "sources": []}
 
     # Try template matching
     q_lower = question.lower()

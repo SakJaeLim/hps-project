@@ -1,6 +1,11 @@
 """L2 NetworkX 온톨로지 + 제약 Cypher 5종. (Neo4j → NetworkX 인메모리 대체)
 별도 DB 서버 없이 동일한 제약 검증을 수행한다."""
-import networkx as nx
+try:
+    import networkx as nx
+    NETWORKX_AVAILABLE = True
+except ImportError:
+    NETWORKX_AVAILABLE = False
+    
 from snct.common.schema import YardState, CandidatePlan, Violation, Assignment
 
 
@@ -8,8 +13,9 @@ class Ontology:
     """In-memory knowledge graph for container terminal stowage constraints."""
 
     def __init__(self):
-        self.G = nx.DiGraph()
-        self._init_rules()
+        if NETWORKX_AVAILABLE:
+            self.G = nx.DiGraph()
+            self._init_rules()
 
     def _init_rules(self):
         """Initialize constraint rule nodes in the knowledge graph."""
@@ -178,6 +184,8 @@ class Ontology:
 
     def validate(self, yard: YardState, plan: CandidatePlan) -> list[Violation]:
         """제약 5종 전체 검증. 위반 목록 반환."""
+        if not NETWORKX_AVAILABLE:
+            return []
         self.G = nx.DiGraph()
         self._init_rules()
         self.build_graph(yard, plan)
