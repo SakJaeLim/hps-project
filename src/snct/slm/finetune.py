@@ -4,7 +4,7 @@ import torch
 import random
 import argparse
 from datasets import Dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 from trl import SFTConfig, SFTTrainer
 
@@ -130,51 +130,53 @@ def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruc
         report_to=[] # Do not report in smoke run, or add ["wandb"] otherwise
     )
     
-    # TRL collate_fn for assistant loss masking only
     def collate_fn(batch):
-        new_batch = {"input_ids": [], "attention_mask": [], "labels": []}
+        texts = []
+        for example in batch:
+            if processor:
+                prompt = processor.apply_chat_template(
+                    example["messages"], tokenize=False,
+                    add_generation_prompt=False)
+            else:
+                prompt = tokenizer.apply_chat_template(
+                    example["messages"], tokenize=False,
+                    add_generation_prompt=False)
+            
+            prompt = remove_think_blocks(prompt)
+            texts.append(prompt)
+            
+        if processor:
+            inputs = processor(text=texts, padding=True, truncation=True, max_length=max_length, return_tensors="pt")
+        else:
+            inputs = tokenizer(texts, padding=True, truncation=True, max_length=max_length, return_tensors="pt")
+            
+        input_ids = inputs["input_ids"]
+        labels = input_ids.clone()
+        
         assistant_tokens = tokenizer.encode("<|im_start|>assistant\n", add_special_tokens=False)
         end_tokens       = tokenizer.encode("<|im_end|>", add_special_tokens=False)
         
-        for example in batch:
-            prompt = tokenizer.apply_chat_template(
-                example["messages"], tokenize=False,
-                add_generation_prompt=False)
-            prompt = remove_think_blocks(prompt)
+        for idx in range(len(input_ids)):
+            seq = input_ids[idx].tolist()
+            i, n = 0, len(seq)
+            labels[idx, :] = -100
             
-            tok = tokenizer(prompt, truncation=True, max_length=max_length,
-                            padding=False, return_tensors=None)
-            input_ids, attention_mask = tok["input_ids"], tok["attention_mask"]
-            labels = [-100] * len(input_ids)
-            
-            i, n = 0, len(input_ids)
             while i <= n - len(assistant_tokens):
-                if input_ids[i:i+len(assistant_tokens)] == assistant_tokens:
+                if seq[i:i+len(assistant_tokens)] == assistant_tokens:
                     s = i + len(assistant_tokens)
                     e = s
                     while e <= n - len(end_tokens):
-                        if input_ids[e:e+len(end_tokens)] == end_tokens:
+                        if seq[e:e+len(end_tokens)] == end_tokens:
                             e += len(end_tokens)
                             break
                         e += 1
-                    for j in range(s, e):
-                        labels[j] = input_ids[j]
+                    labels[idx, s:e] = torch.tensor(seq[s:e])
                     i = e
                 else:
                     i += 1
                     
-            new_batch["input_ids"].append(input_ids)
-            new_batch["attention_mask"].append(attention_mask)
-            new_batch["labels"].append(labels)
-            
-        pad_to = max(len(x) for x in new_batch["input_ids"])
-        for idx in range(len(new_batch["input_ids"])):
-            pad = pad_to - len(new_batch["input_ids"][idx])
-            new_batch["input_ids"][idx].extend([tokenizer.pad_token_id] * pad)
-            new_batch["attention_mask"][idx].extend([0] * pad)
-            new_batch["labels"][idx].extend([-100] * pad)
-            
-        return {k: torch.tensor(v) for k, v in new_batch.items()}
+        inputs["labels"] = labels
+        return inputs
         
     trainer = SFTTrainer(
         model=model,

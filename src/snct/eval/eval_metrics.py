@@ -3,11 +3,35 @@ import json
 import csv
 import statistics
 import argparse
-try:
-    from rouge import Rouge
-    ROUGE_AVAILABLE = True
-except ImportError:
-    ROUGE_AVAILABLE = False
+from pathlib import Path
+
+
+def _lcs_length(left: list[str], right: list[str]) -> int:
+    """Return longest common subsequence length for lightweight ROUGE-L fallback."""
+    previous = [0] * (len(right) + 1)
+    for left_item in left:
+        current = [0]
+        for j, right_item in enumerate(right, start=1):
+            if left_item == right_item:
+                current.append(previous[j - 1] + 1)
+            else:
+                current.append(max(previous[j], current[-1]))
+        previous = current
+    return previous[-1]
+
+
+def rouge_l_f_score(candidate: str, reference: str) -> float:
+    """Compute ROUGE-L F1 without external dependencies."""
+    candidate_tokens = candidate.split()
+    reference_tokens = reference.split()
+    if not candidate_tokens or not reference_tokens:
+        return 0.0
+    lcs = _lcs_length(candidate_tokens, reference_tokens)
+    precision = lcs / len(candidate_tokens)
+    recall = lcs / len(reference_tokens)
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
 
 # Fallback tokenization if Mecab fails
 def get_morphs(text):
@@ -124,10 +148,6 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     ft_outputs = generate_outputs(ft_model_path, golden_items)
     
     # Evaluate
-    if ROUGE_AVAILABLE:
-        rouge = Rouge()
-    else:
-        rouge = None
     results = []
     
     base_rouges = []
@@ -146,19 +166,8 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         base_morphs = " ".join(get_morphs(base_out))
         ft_morphs = " ".join(get_morphs(ft_out))
         
-        if rouge is not None:
-            try:
-                base_r = rouge.get_scores(base_morphs, ref_morphs)[0]["rouge-l"]["f"]
-            except Exception:
-                base_r = 0.0
-                
-            try:
-                ft_r = rouge.get_scores(ft_morphs, ref_morphs)[0]["rouge-l"]["f"]
-            except Exception:
-                ft_r = 0.0
-        else:
-            base_r = 0.312  # Fallback mock values
-            ft_r = 0.885
+        base_r = rouge_l_f_score(base_morphs, ref_morphs)
+        ft_r = rouge_l_f_score(ft_morphs, ref_morphs)
             
         base_rouges.append(base_r)
         ft_rouges.append(ft_r)
@@ -234,10 +243,10 @@ if __name__ == "__main__":
         default_ft = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged"
         
     parser = argparse.ArgumentParser()
-    parser.add_argument("--golden-path", type=str, default=os.path.join(default_base, "data", "simulated", "eval_golden.jsonl"))
+    parser.add_argument("--golden-path", type=str, default=str(Path(__file__).resolve().parents[3] / "data" / "simulated" / "eval_golden.jsonl"))
     parser.add_argument("--base-model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
-    parser.add_argument("--ft-model", type=str, default=default_ft)
-    parser.add_argument("--output-csv", type=str, default=os.path.join(default_base, "data", "simulated", "eval_report.csv"))
+    parser.add_argument("--ft-model", type=str, default=str(Path(__file__).resolve().parents[3] / "outputs" / "portslm-merged"))
+    parser.add_argument("--output-csv", type=str, default=str(Path(__file__).resolve().parents[3] / "data" / "simulated" / "eval_report.csv"))
     args = parser.parse_args()
     
     run_evaluation(

@@ -66,7 +66,7 @@ def generate_recommendations_from_csv(csv_path):
     # Larger number = further = must be stacked bottom.
     
     for i, r in enumerate(rows):
-        container_id = r.get("container_id", f"SNCT-CNTR-{100000+i}")
+        container_id = r.get("container_id", f"CNTR-{100000+i}")
         pod_name = r.get("pod_name", "Unknown")
         pod_id = int(r.get("pod_id", "3"))
         weight = float(r.get("weight_mt", "15.0"))

@@ -1,7 +1,7 @@
 import os
 import argparse
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoProcessor
 from peft import PeftModel
 
 def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=None):
@@ -22,6 +22,12 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         trust_remote_code=True
     )
     
+    # Workaround for tied embeddings bug in PEFT merge
+    if hasattr(base.config, "tie_word_embeddings") and base.config.tie_word_embeddings:
+        print("Model uses tied embeddings, applying lm_head workaround...")
+        if hasattr(base, "lm_head") and hasattr(base.model, "embed_tokens"):
+            base.lm_head.weight = base.model.embed_tokens.weight
+            
     print(f"Loading adapter from: {adapter_path}")
     model = PeftModel.from_pretrained(base, adapter_path)
     
