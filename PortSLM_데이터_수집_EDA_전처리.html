@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PortSLM 데이터 수집 · EDA · 전처리</title>
+<style>
+  :root{
+    --navy:#0B2545; --deep:#0A5275; --teal:#1C7293; --sea:#13A1B5;
+    --mint:#8ECAE6; --ice:#EAF2F6; --card:#FFFFFF; --ink:#1B2B3A;
+    --mut:#5A6B7A; --gold:#F2A541; --green:#2E8C73;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    background:#0a1722; color:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px;
+  }
+  .deck{width:100%; max-width:1180px;}
+  .stage{
+    position:relative; width:100%; aspect-ratio:16/9;
+    background:var(--ice); border-radius:14px; overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.45);
+  }
+  .slide{
+    position:absolute; inset:0; padding:4.2% 4.0%;
+    display:none; flex-direction:column; animation:fade .35s ease;
+  }
+  .slide.active{display:flex;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+  /* container-query based scaling so text fits any width (size = both cqw & cqh resolve) */
+  .stage{container-type:size;}
+  .s-title{font-size:3.0cqw; font-weight:800; color:var(--navy); line-height:1.1;}
+  .tag{display:flex; align-items:center; gap:1.2cqw; margin-bottom:1.6cqh;}
+  .tag .bar{width:0.9cqw; height:3.6cqh; background:var(--sea); border-radius:2px;}
+  .tag h2{font-size:2.55cqw; font-weight:800; color:var(--navy);}
+  .sub{font-size:1.25cqw; color:var(--mut); margin-bottom:2.2cqh; line-height:1.5;}
+
+  /* TITLE SLIDE */
+  .title-slide{background:var(--navy); color:#fff; justify-content:center; padding:6% 6%;}
+  .title-slide .eyebrow{font-size:1.15cqw; letter-spacing:.32em; color:var(--mint); font-weight:700; margin-bottom:2.4cqh;}
+  .title-slide h1{font-size:4.4cqw; font-weight:800; line-height:1.08; margin-bottom:1.6cqh;}
+  .title-slide .h2{font-size:2.5cqw; color:var(--mint); margin-bottom:2.4cqh;}
+  .title-slide .tracks{font-size:1.45cqw; margin-bottom:3.4cqh;}
+  .title-slide .tracks b.sea{color:var(--sea);} .title-slide .tracks b.gold{color:var(--gold);} .title-slide .tracks b.mint{color:var(--mint);}
+  .title-slide .tracks span{color:#CFE3ED;}
+  .stat-row{display:flex; gap:4%;}
+  .stat-row .st .num{font-size:2.9cqw; font-weight:800; color:var(--gold); line-height:1;}
+  .stat-row .st .lab{font-size:1.1cqw; color:#CFE3ED; margin-top:.6cqh;}
+  .credit{font-size:1.0cqw; color:#9FBCCC; margin-top:3.2cqh;}
+  .containers{position:absolute; left:0; right:0; bottom:0; height:14%; display:flex; gap:.5%; align-items:flex-end; opacity:.72;}
+  .containers i{flex:1; border-radius:3px 3px 0 0;}
+
+  /* generic layout */
+  .row{display:flex; gap:2.2%;}
+  .col{flex:1;}
+  .cards4{display:flex; gap:2.0%; margin-bottom:2.6cqh;}
+  .statcard{flex:1; background:var(--card); border-radius:10px; padding:1.8cqh 1.0cqw 1.6cqh;
+            box-shadow:0 6px 18px rgba(11,37,69,.10); text-align:center; position:relative; overflow:hidden;}
+  .statcard .top{position:absolute; top:0; left:0; right:0; height:6px;}
+  .statcard .num{font-size:2.7cqw; font-weight:800; line-height:1.1;}
+  .statcard .lab{font-size:1.02cqw; color:var(--ink); margin-top:.7cqh;}
+
+  h3.blk{font-size:1.45cqw; font-weight:800; color:var(--navy); margin:0 0 1.1cqh;}
+
+  table{width:100%; border-collapse:collapse; background:var(--card); border-radius:8px; overflow:hidden;
+        box-shadow:0 6px 18px rgba(11,37,69,.08); font-size:1.04cqw;}
+  thead th{background:var(--deep); color:#fff; text-align:left; padding:.95cqh .8cqw; font-weight:700;}
+  thead th.c{text-align:center;}
+  tbody td{padding:.85cqh .8cqw; border-bottom:1px solid #E1EAF0; color:var(--ink);}
+  tbody td.c{text-align:center;}
+  tbody tr:last-child td{border-bottom:none;}
+
+  .panel{background:var(--card); border-radius:10px; padding:1.6cqh 1.2cqw; box-shadow:0 6px 18px rgba(11,37,69,.08);
+          font-size:1.08cqw; line-height:1.55;}
+  .panel b{color:var(--deep);}
+  .panel .mut{color:var(--mut);}
+
+  .navy-band{background:var(--navy); color:#DCEAF2; border-radius:10px; padding:1.5cqh 1.2cqw; font-size:1.05cqw; line-height:1.5;}
+  .navy-band h4{color:var(--mint); font-size:1.2cqw; margin-bottom:.8cqh;}
+  .navy-band .sea{color:var(--sea); font-weight:700;} .navy-band .gold{color:var(--gold); font-weight:700;} .navy-band .mint2{color:var(--mint); font-weight:700;}
+
+  /* domain group cards */
+  .grp{background:var(--card); border-radius:9px; padding:1.1cqh 1.0cqw; margin-bottom:1.0cqh;
+       box-shadow:0 5px 14px rgba(11,37,69,.08); border-left:6px solid var(--deep);}
+  .grp h4{font-size:1.25cqw; color:var(--navy); font-weight:800;}
+  .grp p{font-size:1.0cqw; color:var(--mut); margin-top:.35cqh;}
+
+  /* CSS bar chart */
+  .chart{background:var(--card); border-radius:10px; padding:1.6cqh 1.2cqw; box-shadow:0 6px 18px rgba(11,37,69,.08);}
+  .bar{display:flex; align-items:center; gap:.7cqw; margin:.55cqh 0; font-size:.98cqw;}
+  .bar .name{width:30%; text-align:right; color:var(--mut); flex-shrink:0;}
+  .bar .track{flex:1; background:#EEF3F7; border-radius:5px; height:1.9cqh; position:relative;}
+  .bar .fill{height:100%; border-radius:5px; background:var(--teal);}
+  .bar .val{font-weight:800; color:var(--ink); font-size:.98cqw; min-width:3.2%;}
+
+  /* grouped KPI bars */
+  .kpi-grid{display:flex; gap:6%; align-items:flex-end; height:26cqh; padding:1.2cqh 1cqw 0; background:var(--card);
+            border-radius:10px; box-shadow:0 6px 18px rgba(11,37,69,.08);}
+  .kpi-g{flex:1; display:flex; flex-direction:column; align-items:center; height:100%;}
+  .kpi-bars{display:flex; gap:8%; align-items:flex-end; flex:1; width:100%; justify-content:center;}
+  .kpi-bars i{width:18%; border-radius:4px 4px 0 0;}
+  .kpi-x{font-size:1.0cqw; color:var(--mut); margin-top:.7cqh;}
+  .kpi-vals{display:flex; flex-direction:column; align-items:center; gap:.05cqh; margin-top:.35cqh;
+            font-size:.86cqw; font-weight:700; line-height:1.18;}
+  .legend{display:flex; gap:1.4cqw; justify-content:center; font-size:1.0cqw; color:var(--mut); margin-bottom:1.0cqh;}
+  .legend i{display:inline-block; width:1.0cqw; height:1.0cqw; border-radius:2px; margin-right:.4cqw; vertical-align:middle;}
+
+  /* pipeline */
+  .pipe{display:flex; gap:1.1%; margin-bottom:2.2cqh;}
+  .step{flex:1; background:var(--card); border-radius:10px; overflow:hidden; box-shadow:0 6px 18px rgba(11,37,69,.08); position:relative;}
+  .step .hd{color:#fff; text-align:center; font-size:2.1cqw; font-weight:800; padding:.9cqh 0;}
+  .step .ti{font-size:1.18cqw; font-weight:800; color:var(--navy); text-align:center; margin:1.0cqh .4cqw 0;}
+  .step .de{font-size:.95cqw; color:var(--mut); text-align:center; margin:.6cqh .5cqw 1.4cqh; line-height:1.35;}
+  .step .arrow{position:absolute; right:-7px; top:42%; width:0;height:0;
+               border-top:7px solid transparent; border-bottom:7px solid transparent; border-left:9px solid var(--sea); z-index:3;}
+
+  .keyband{background:var(--navy); color:#CFE3ED; border-radius:10px; padding:1.5cqh 1.3cqw; font-size:1.15cqw; margin-bottom:1.8cqh;}
+  .keyband .gold{color:var(--gold); font-weight:800;} .keyband b{color:#fff;}
+
+  .twocol-note{display:flex; gap:2.2%;}
+  .note{flex:1; background:var(--card); border-radius:10px; padding:1.3cqh 1.1cqw; box-shadow:0 6px 18px rgba(11,37,69,.08); border-left:6px solid var(--teal);}
+  .note.gold{border-left-color:var(--gold);}
+  .note h4{font-size:1.2cqw; color:var(--navy); font-weight:800; margin-bottom:.6cqh;}
+  .note p{font-size:1.0cqw; color:var(--ink); line-height:1.45;}
+
+  /* quality rows */
+  .qrow{display:flex; align-items:flex-start; gap:1.0cqw; background:var(--card); border-radius:10px;
+        padding:1.15cqh 1.0cqw; margin-bottom:1.0cqh; box-shadow:0 6px 18px rgba(11,37,69,.08);}
+  .qrow .dot{width:2.0cqw; height:2.0cqw; border-radius:50%; flex-shrink:0; margin-top:.3cqh;}
+  .qrow h4{font-size:1.2cqw; color:var(--navy); font-weight:800;}
+  .qrow p{font-size:1.0cqw; color:var(--mut); margin-top:.3cqh; line-height:1.4;}
+
+  .foot{position:absolute; left:4%; right:4%; bottom:2.2%; display:flex; justify-content:space-between;
+        font-size:.9cqw; color:var(--mut);}
+
+  /* nav */
+  .nav{display:flex; align-items:center; justify-content:center; gap:18px; margin-top:18px;}
+  .nav button{background:#13314a; color:#cfe3ed; border:1px solid #24506e; border-radius:8px;
+              padding:9px 18px; font-size:14px; cursor:pointer; font-family:inherit;}
+  .nav button:hover{background:#1a4566;}
+  .dots{display:flex; gap:8px;}
+  .dots i{width:9px; height:9px; border-radius:50%; background:#33597a; cursor:pointer;}
+  .dots i.on{background:var(--gold); width:22px; border-radius:5px;}
+  .counter{color:#9FBCCC; font-size:13px; min-width:46px; text-align:center;}
+  @media print{
+    body{background:#fff; padding:0;} .nav{display:none;}
+    .deck{max-width:none;}
+    .stage{box-shadow:none; border-radius:0; page-break-after:always; aspect-ratio:16/9;}
+    .slide{display:flex !important; position:relative;}
+  }
+</style>
+</head>
+<body>
+<div class="deck">
+  <div class="stage" id="stage">
+
+    <!-- SLIDE 1 : TITLE -->
+    <section class="slide active title-slide">
+      <div class="eyebrow">CONTAINER · STOWAGE · MARITIME REGULATION</div>
+      <h1>항만 특화 SLM 파인튜닝</h1>
+      <div class="h2">데이터 수집 · EDA · 전처리 현황 보고</div>
+      <div class="tracks">
+        <b class="sea">RAG</b> <span>· 검색증강&nbsp;&nbsp;&nbsp;</span>
+        <b class="gold">RDB(LPG)</b> <span>· 지식그래프&nbsp;&nbsp;&nbsp;</span>
+        <b class="mint">SFT</b> <span>· 지시튜닝</span>
+      </div>
+      <div class="stat-row">
+        <div class="st"><div class="num">260+</div><div class="lab">수집 파일</div></div>
+        <div class="st"><div class="num">~226MB</div><div class="lab">데이터 용량</div></div>
+        <div class="st"><div class="num">12</div><div class="lab">도메인 코퍼스</div></div>
+        <div class="st"><div class="num">1,003</div><div class="lab">SFT 샘플</div></div>
+      </div>
+      <div class="credit">2026.06 · 연구: Hongsung</div>
+      <div class="containers" id="cont"></div>
+    </section>
+
+    <!-- SLIDE 2 : 수집현황 개요 -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>1. 데이터 수집 현황 — 개요</h2></div>
+      <div class="sub">국제 규정·EDI 표준·적재계획·운영 SOP·강화학습 결과를 망라한 항만 도메인 코퍼스를 RAG / RDB(LPG) / SFT 3대 산출물 형태로 구축</div>
+      <div class="cards4">
+        <div class="statcard"><div class="top" style="background:var(--deep)"></div><div class="num" style="color:var(--deep)">260+</div><div class="lab">수집 파일 수</div></div>
+        <div class="statcard"><div class="top" style="background:var(--teal)"></div><div class="num" style="color:var(--teal)">226 MB</div><div class="lab">총 데이터 용량</div></div>
+        <div class="statcard"><div class="top" style="background:var(--sea)"></div><div class="num" style="color:var(--sea)">12</div><div class="lab">도메인 코퍼스</div></div>
+        <div class="statcard"><div class="top" style="background:var(--gold)"></div><div class="num" style="color:var(--gold)">3</div><div class="lab">산출물 유형 (RAG·LPG·SFT)</div></div>
+      </div>
+      <div class="row" style="flex:1;">
+        <div class="col">
+          <h3 class="blk">최상위 카테고리별 규모</h3>
+          <table>
+            <thead><tr><th>카테고리</th><th class="c">파일</th><th class="c">용량</th></tr></thead>
+            <tbody>
+              <tr><td>파인튜닝 자료 (규정·EDI·적재계획)</td><td class="c">151</td><td class="c">171.9 MB</td></tr>
+              <tr><td>강화학습 결과 자료 (PPO BL/SF/EF)</td><td class="c">82</td><td class="c">47.4 MB</td></tr>
+              <tr><td>적재계획 SOP</td><td class="c">14</td><td class="c">5.1 MB</td></tr>
+              <tr><td>Safety SOP</td><td class="c">13</td><td class="c">2.1 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col">
+          <h3 class="blk">원천 자료 &amp; 파일 형식</h3>
+          <div class="panel">
+            <p><b>원천 문서</b> 26 PDF + 21 설계서(docx) <span class="mut">— 규정 원문·EDI 사양서·튜토리얼</span></p>
+            <p style="margin-top:.9cqh"><b>산출 파일 형식</b><br>JSONL 58 · CSV 34 · JSON 31 · ZIP 25 · CYPHER 13<br>PNG 12 · PTH 9(RL 모델) · TXT 8 · XLSX 7 · NPY 4(임베딩)</p>
+            <p style="margin-top:.9cqh"><b>구성 원칙</b><br>코퍼스마다 청크·임베딩·그래프·SFT·설계서를 1세트로 표준화</p>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>2</span></div>
+    </section>
+
+    <!-- SLIDE 3 : 도메인 분류 -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>1. 데이터 수집 현황 — 도메인 분류</h2></div>
+      <div class="row" style="flex:1; margin-top:.6cqh;">
+        <div class="col" style="flex:1.25;">
+          <div class="grp" style="border-left-color:var(--deep)"><h4>국제 규정 · 표준</h4><p>SOLAS · ISPS / ISPS Code · IMO 가이드북 · 위험물 선박운송 기준</p></div>
+          <div class="grp" style="border-left-color:var(--teal)"><h4>EDI 메시지 표준</h4><p>BAPLIE · COPRAR · MOVINS (UN/EDIFACT · SMDG)</p></div>
+          <div class="grp" style="border-left-color:var(--sea)"><h4>적재계획 도메인</h4><p>CVSP · Stowage Basics · 본선 플래닝 기준 · Bay Plan · 선박제원</p></div>
+          <div class="grp" style="border-left-color:var(--green)"><h4>운영 SOP</h4><p>Safety SOP · 적재계획 SOP (터미널 운영 절차)</p></div>
+          <div class="grp" style="border-left-color:var(--gold); margin-bottom:0;"><h4>강화학습 결과</h4><p>PPO 적재 시뮬레이션 BL · SF · EF (3-way 정책)</p></div>
+        </div>
+        <div class="col">
+          <h3 class="blk">산출 파일 형식 분포</h3>
+          <div class="chart" id="chart-ext"></div>
+          <div class="navy-band" style="margin-top:1.2cqh;">
+            <h4>3대 산출물 트랙</h4>
+            <div><span class="sea">RAG</span> chunks·embedding·vector_upsert</div>
+            <div><span class="gold">LPG</span> graph.json·nodes/rels·cypher</div>
+            <div><span class="mint2">SFT</span> instruction 데이터셋 (chat/alpaca)</div>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>3</span></div>
+    </section>
+
+    <!-- SLIDE 4 : EDA SFT+RAG -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>2. EDA — SFT &amp; RAG 코퍼스</h2></div>
+      <div class="cards4">
+        <div class="statcard"><div class="num" style="color:var(--deep)">1,003</div><div class="lab">SFT 학습 샘플 (28파일)</div></div>
+        <div class="statcard"><div class="num" style="color:var(--deep)">2,724</div><div class="lab">RAG 청크 레코드 (30파일)</div></div>
+        <div class="statcard"><div class="num" style="color:var(--deep)">15</div><div class="lab">SFT 태스크 유형</div></div>
+        <div class="statcard"><div class="num" style="color:var(--deep)">869 / 134</div><div class="lab">chat / alpaca 포맷</div></div>
+      </div>
+      <div class="row" style="flex:1;">
+        <div class="col">
+          <h3 class="blk">SFT 태스크 유형 분포 (상위)</h3>
+          <div class="chart" id="chart-sft"></div>
+        </div>
+        <div class="col">
+          <h3 class="blk">RAG 청크 규모 (코퍼스별, 상위)</h3>
+          <div class="chart" id="chart-rag"></div>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>4</span></div>
+    </section>
+
+    <!-- SLIDE 5 : EDA LPG + RL KPI -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>2. EDA — 지식그래프(LPG) &amp; 강화학습 KPI</h2></div>
+      <div class="row" style="flex:1;">
+        <div class="col">
+          <div class="cards4" style="margin-bottom:1.6cqh;">
+            <div class="statcard"><div class="num" style="color:var(--deep)">687</div><div class="lab">LPG 그래프 노드</div></div>
+            <div class="statcard"><div class="num" style="color:var(--teal)">1,812</div><div class="lab">LPG 그래프 엣지 (10개 코퍼스)</div></div>
+          </div>
+          <h3 class="blk">강화학습 KG 주요 엔티티 (RDB·LPG)</h3>
+          <table>
+            <thead><tr><th>엔티티 / 관계</th><th class="c">건수</th></tr></thead>
+            <tbody>
+              <tr><td>Container / Slot (적재 단위)</td><td class="c">337</td></tr>
+              <tr><td>REL_STACKED_ON (적재 스택)</td><td class="c">270</td></tr>
+              <tr><td>REL_VIOLATES (제약 위반)</td><td class="c">17</td></tr>
+              <tr><td>노드 타입 9종 (Vessel·Bay·Row·Tier·Slot…)</td><td class="c">—</td></tr>
+            </tbody>
+          </table>
+          <div class="navy-band" style="margin-top:1.4cqh;">
+            <div><span class="mint2">가장 큰 그래프</span> ISPS Code 135노드·530엣지, CVSP 113노드·331엣지</div>
+            <div style="margin-top:.5cqh"><span class="gold">의미</span> 규정·적재계획 도메인이 가장 조밀한 관계망을 형성</div>
+          </div>
+        </div>
+        <div class="col">
+          <h3 class="blk">강화학습 최종 라운드(Lv4) KPI — BL·SF·EF</h3>
+          <div class="legend">
+            <span><i style="background:var(--teal)"></i>BL</span>
+            <span><i style="background:var(--sea)"></i>SF</span>
+            <span><i style="background:var(--gold)"></i>EF</span>
+          </div>
+          <div class="kpi-grid" id="kpi"></div>
+          <div class="note gold" style="margin-top:1.4cqh;">
+            <h4>핵심 관찰 (3-way 정책 비교)</h4>
+            <p><b style="color:var(--deep)">EF 정책</b>이 Reward(1,464.5)·VPR(0.9997)·WBI(0.954) 최고<br>
+            <b style="color:var(--deep)">전 정책 OSR=0</b> (오버스토우 0건) → 적재 유효성 확보<br>
+            <b style="color:var(--deep)">학습 규모</b> Lv4 누적 약 8.07M steps / 정책당 4단계 커리큘럼</p>
+            <p style="margin-top:.6cqh; font-size:.94cqw; color:var(--mut); line-height:1.45;">
+            <b style="color:var(--deep)">용어</b>
+            <b>VPR</b> 유효배치율(제약 만족 배치, ↑) ·
+            <b>WBI</b> 중량균형지수(중량 분포 균형, ↑) ·
+            <b>OSR</b> 오버스토우율(재취급 유발 과적재, ↓ · 0이 최선)</p>
+          </div>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>5</span></div>
+    </section>
+
+    <!-- SLIDE 6 : 전처리 파이프라인 -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>3. 데이터 전처리 — 통합 파이프라인</h2></div>
+      <div class="pipe" style="margin-top:1.0cqh;">
+        <div class="step"><div class="hd" style="background:var(--deep)">①</div><div class="ti">원천 수집</div><div class="de">PDF·EDI 사양·<br>튜토리얼·규정 원문</div><span class="arrow"></span></div>
+        <div class="step"><div class="hd" style="background:var(--teal)">②</div><div class="ti">추출·정규화·청킹</div><div class="de">섹션/조항 단위 분할<br>+ 메타데이터 부여</div><span class="arrow"></span></div>
+        <div class="step"><div class="hd" style="background:var(--sea)">③</div><div class="ti">SFT 생성</div><div class="de">instruction 변환<br>grounded + 출처인용</div><span class="arrow"></span></div>
+        <div class="step"><div class="hd" style="background:var(--green)">④</div><div class="ti">임베딩·벡터DB</div><div class="de">BGE-M3 1024d<br>cosine · 하이브리드</div><span class="arrow"></span></div>
+        <div class="step"><div class="hd" style="background:var(--gold)">⑤</div><div class="ti">GraphRAG / LPG</div><div class="de">엔티티·관계 추출<br>Neo4j cypher 적재</div></div>
+      </div>
+      <div class="keyband">
+        <span class="gold">핵심 키 연계</span>&nbsp;&nbsp; <b>chunk_id == 벡터DB id == KG vector_ref</b>
+        &nbsp; → &nbsp;그래프 추론 중 원문 청크를 즉시 역추적 (RAG ↔ LPG ↔ SFT 정합성 보장)
+      </div>
+      <div class="twocol-note">
+        <div class="note">
+          <h4>임베딩 전략</h4>
+          <p>프로토타입 TF-IDF(20k)+SVD/LSA 384d → 운영 BGE-M3 1024d 교체 · BM25(sparse)+dense 하이브리드, RRF 융합</p>
+        </div>
+        <div class="note gold">
+          <h4>강화학습 데이터 전처리</h4>
+          <p>PPO 적재 시뮬 → KPI·reward_decomp·slot_assignment(CSV) → RDB + Neo4j KG + RAG rationale + XAI grounding + SFT</p>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>6</span></div>
+    </section>
+
+    <!-- SLIDE 7 : 전처리 표준 산출물 -->
+    <section class="slide">
+      <div class="tag"><span class="bar"></span><h2>3. 데이터 전처리 — 표준 산출물 &amp; 품질관리</h2></div>
+      <div class="row" style="flex:1; margin-top:.6cqh;">
+        <div class="col">
+          <h3 class="blk">코퍼스별 표준 산출물 세트</h3>
+          <table>
+            <thead><tr><th>산출물</th><th class="c">트랙</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td>chunks.jsonl</td><td class="c">RAG</td><td>조항/섹션 단위 청크</td></tr>
+              <tr><td>embedding_schema.json</td><td class="c">RAG</td><td>벡터 스키마·인덱스 정의</td></tr>
+              <tr><td>vector_upsert.jsonl</td><td class="c">RAG</td><td>벡터DB 적재 레코드</td></tr>
+              <tr><td>graph.json</td><td class="c">LPG</td><td>노드·관계 그래프</td></tr>
+              <tr><td>graph_load.cypher</td><td class="c">LPG</td><td>Neo4j 적재 스크립트</td></tr>
+              <tr><td>sft_dataset.jsonl</td><td class="c">SFT</td><td>지시튜닝 데이터셋</td></tr>
+              <tr><td>파이프라인 설계서.docx</td><td class="c">DOC</td><td>구축 절차 문서</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="col">
+          <h3 class="blk">정규화 · 품질 관리</h3>
+          <div class="qrow"><span class="dot" style="background:var(--deep)"></span><div><h4>구조화 청킹</h4><p>규정은 조항·섹션, EDI는 세그먼트, 적재계획은 챕터 단위로 분할</p></div></div>
+          <div class="qrow"><span class="dot" style="background:var(--teal)"></span><div><h4>메타데이터 부여</h4><p>doc_type·section·actors·security_level 등 페이로드 필드 태깅</p></div></div>
+          <div class="qrow"><span class="dot" style="background:var(--sea)"></span><div><h4>출처 고정 (grounding)</h4><p>SFT 답변에 출처 인용·운영판단 금지를 system 프롬프트로 강제</p></div></div>
+          <div class="qrow" style="margin-bottom:0;"><span class="dot" style="background:var(--gold)"></span><div><h4>3트랙 정합성</h4><p>chunk_id 공유 키로 RAG·LPG·SFT 상호 추적 가능</p></div></div>
+        </div>
+      </div>
+      <div class="foot"><span>PortSLM · 항만 특화 SLM 파인튜닝 데이터</span><span>7</span></div>
+    </section>
+
+  </div>
+
+  <div class="nav">
+    <button id="prev">◀ 이전</button>
+    <div class="dots" id="dots"></div>
+    <span class="counter" id="counter">1 / 7</span>
+    <button id="next">다음 ▶</button>
+  </div>
+</div>
+
+<script>
+  // container stacks on title
+  (function(){
+    const cont=document.getElementById('cont');
+    const cols=['#13A1B5','#1C7293','#0A5275','#F2A541','#8ECAE6'];
+    for(let i=0;i<26;i++){const b=document.createElement('i');
+      b.style.background=cols[i%cols.length];
+      b.style.height=(55+(i%4)*16)+'%';
+      cont.appendChild(b);}
+  })();
+
+  function barChart(el, data, max, color){
+    el.innerHTML='';
+    data.forEach(d=>{
+      const row=document.createElement('div'); row.className='bar';
+      row.innerHTML=`<span class="name">${d[0]}</span>
+        <span class="track"><span class="fill" style="width:${(d[1]/max*100).toFixed(1)}%;background:${color}"></span></span>
+        <span class="val">${d[1].toLocaleString()}</span>`;
+      el.appendChild(row);
+    });
+  }
+  barChart(document.getElementById('chart-ext'),
+    [['JSONL',58],['CSV',34],['JSON',31],['PDF',26],['ZIP',25],['DOCX',21],['CYPHER',13],['PNG',12]],58,'#1C7293');
+  barChart(document.getElementById('chart-sft'),
+    [['grounded_expl.',144],['concept_qa',100],['definition_qa',95],['rule_qa',13],['catalog_qa',8],['spec_lookup',8],['code_qa',7]],144,'#13A1B5');
+  barChart(document.getElementById('chart-rag'),
+    [['ISPS',816],['BAPLIE',183],['ISPS Code',103],['CVSP',87],['MOVINS',83],['SOLAS',29],['COPRAR',26],['IMO GB',20]],816,'#1C7293');
+
+  // KPI grouped bars (VPR, WBI, OSR↓) for BL/SF/EF — with per-policy value labels
+  (function(){
+    const kpi=document.getElementById('kpi');
+    const groups=[['VPR',[0.9987,0.9993,0.9997]],['WBI',[0.9407,0.939,0.9536]],['OSR(↓)',[0,0,0]]];
+    const cols=['#1C7293','#13A1B5','#F2A541'];
+    groups.forEach(g=>{
+      const col=document.createElement('div'); col.className='kpi-g';
+      const bars=document.createElement('div'); bars.className='kpi-bars';
+      g[1].forEach((v,i)=>{const b=document.createElement('i');
+        b.style.background=cols[i]; b.style.height=Math.max(v*100,1.5)+'%';
+        bars.appendChild(b);});
+      const x=document.createElement('div'); x.className='kpi-x'; x.textContent=g[0];
+      const vals=document.createElement('div'); vals.className='kpi-vals';
+      g[1].forEach((v,i)=>{const s=document.createElement('span');
+        s.style.color=cols[i]; s.textContent=(v===0?'0':v.toFixed(4));
+        vals.appendChild(s);});
+      col.appendChild(bars); col.appendChild(x); col.appendChild(vals); kpi.appendChild(col);
+    });
+  })();
+
+  // navigation
+  const slides=[...document.querySelectorAll('.slide')];
+  const dotsWrap=document.getElementById('dots');
+  let idx=0;
+  slides.forEach((_,i)=>{const d=document.createElement('i'); if(i===0)d.classList.add('on');
+    d.onclick=()=>go(i); dotsWrap.appendChild(d);});
+  const dots=[...dotsWrap.children];
+  function go(n){
+    idx=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,i)=>s.classList.toggle('active',i===idx));
+    dots.forEach((d,i)=>d.classList.toggle('on',i===idx));
+    document.getElementById('counter').textContent=`${idx+1} / ${slides.length}`;
+  }
+  document.getElementById('prev').onclick=()=>go(idx-1);
+  document.getElementById('next').onclick=()=>go(idx+1);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' ')go(idx+1);
+    if(e.key==='ArrowLeft')go(idx-1);
+  });
+</script>
+</body>
+</html>
