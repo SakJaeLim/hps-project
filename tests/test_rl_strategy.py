@@ -9,4 +9,4 @@ def test_rl_strategy():
         queue=[Container(id="C1", weight_ton=20.0, size="40", type="GP", pod="LAX")]
     )
     cp = get_strategy("rl").plan(ys)
-    assert cp.engine == "rl"  # 원우 모델 통합 → 유효 배정
+    assert cp.engine.startswith("rl")  # 원우 모델 통합 → 유효 배정

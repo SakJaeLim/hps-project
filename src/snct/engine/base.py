@@ -16,6 +16,12 @@ def get_strategy(name: str = "rl") -> "StowageStrategy":
     elif name == "cp":
         from snct.engine.cp_sat import CPStrategy
         return CPStrategy()
-    else:
+    elif name == "rl_sf":
         from snct.engine.rl_policy import RLStrategy
-        return RLStrategy()
+        return RLStrategy(model_type="SF")
+    elif name == "rl_ef":
+        from snct.engine.rl_policy import RLStrategy
+        return RLStrategy(model_type="EF")
+    else: # "rl" or "rl_bl"
+        from snct.engine.rl_policy import RLStrategy
+        return RLStrategy(model_type="BL")

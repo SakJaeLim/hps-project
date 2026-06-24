@@ -181,10 +181,23 @@ def plan_endpoint(req: PlanRequest):
 
         latency = int((time.time() - start_time) * 1000)
 
+        # Lookup container details from simulated provider
+        from snct.data.provider import get_provider
+        provider = get_provider("simulated")
+        yard_state = provider.get_yard_state(req.vessel_id)
+        cntr_lookup = {c.id: c for c in yard_state.queue}
+
         return {
             "assignments": [
-                {"container_id": a.container_id, "bay": a.bay, "row": a.row, "tier": a.tier}
+                {"container_id": a.container_id, "bay": a.bay, "row": a.row, "tier": a.tier,
+                 "weight_ton": cntr_lookup[a.container_id].weight_ton if a.container_id in cntr_lookup else 0.0,
+                 "pod": cntr_lookup[a.container_id].pod if a.container_id in cntr_lookup else "UNKNOWN"}
                 for a in recommendation.plan.assignments
+            ],
+            "slots": [
+                {"bay": s.bay, "row": s.row, "tier": s.tier,
+                 "dg_allowed": s.dg_allowed, "reefer_capable": s.reefer_capable}
+                for s in yard_state.slots
             ],
             "violations": [
                 {"rule": v.rule, "container_id": v.container_id,

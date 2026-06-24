@@ -1,0 +1,4 @@
+﻿policy:ID(Policy),desc,:LABEL
+BL,Baseline (All R1-R14 active throughout),Policy
+SF,Safety-First (Stability priority → Both),Policy
+EF,Efficiency-First (Efficiency priority → Both),Policy

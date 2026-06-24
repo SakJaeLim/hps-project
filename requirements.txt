@@ -19,6 +19,7 @@ fastapi
 uvicorn
 streamlit
 pydantic
+stable-baselines3
 
 # --- Dev ---
 pytest
