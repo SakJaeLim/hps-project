@@ -40,6 +40,18 @@ class PlanRequest(BaseModel):
     engine: str = "greedy"  # greedy | rl
     vessel_id: str = "VESSEL-001"
 
+class ExplainRequest(BaseModel):
+    """RL 의사결정 설명 요청. question으로 자연어 또는 policy+round_id 직접 지정."""
+    question: str | None = None
+    policy: str | None = None       # BL | SF | EF
+    round_id: int | None = None
+    with_lpg: bool = True
+
+class LocateRequest(BaseModel):
+    """컨테이너 위치 조회 요청. question(자연어) 또는 container_id 직접 지정."""
+    question: str | None = None
+    container_id: str | None = None
+
 # In-memory history
 history = []
 
@@ -196,6 +208,38 @@ def plan_endpoint(req: PlanRequest):
             "checks": recommendation.checks,
             "latency_ms": latency,
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/explain")
+def explain_endpoint(req: ExplainRequest) -> dict:
+    """설명가능 RL 흐름: 질의 → 근거수집(RDB·LPG) → 설명 융합 → faithfulness 자기검증."""
+    start_time = time.time()
+    try:
+        from snct.agents.graph import run_explanation
+        rec = run_explanation(
+            question=req.question,
+            policy=req.policy,
+            round_id=req.round_id,
+            with_lpg=req.with_lpg,
+        )
+        return {
+            "rationale": rec.rationale,
+            "checks": rec.checks,
+            "latency_ms": int((time.time() - start_time) * 1000),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/locate")
+def locate_endpoint(req: LocateRequest) -> dict:
+    """컨테이너 위치 조회: 자연어 또는 container_id → 위치(bay/row/tier) + 반출 가능 여부."""
+    try:
+        from snct.knowledge.locator import where_is
+        text = req.container_id or req.question or ""
+        return where_is(text)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

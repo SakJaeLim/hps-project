@@ -12,6 +12,7 @@ networkx
 scikit-learn
 duckdb
 sqlalchemy
+neo4j             # GraphRAG/LPG Neo4j 드라이버 — spec 07 (미연결 시 CSV 폴백)
 requests
 
 # --- Serving / API / UI ---
