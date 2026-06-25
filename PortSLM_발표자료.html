@@ -847,7 +847,7 @@
             style="background:#F4A52C"></i><i style="background:#e5564e"></i><i style="background:#9fc0dc"></i></div>
         <div class="kicker">aSSIST · HPS AI PROJECT — 4조</div>
         <h1>컨테이너 터미널<br><b>PortSLM 의사결정 지원 플랫폼</b></h1>
-        <div class="lead">온톨로지 · 강화학습 · GraphRAG · 도메인 특화 SLM 기반<br>컨테이너 터미널 본선 적재계획 의사결정지원 — <b style="color:#fff">1개월
+        <div class="lead">온톨로지 · 강화학습 · GraphRAG · 도메인 특화 SLM 기반<br>인천신항 본선 적재계획 의사결정지원 — <b style="color:#fff">1개월
             MVP</b></div>
         <div class="meta">
           <span class="chip">PortAgent‑RLGraph (플랫폼 비전)</span>
@@ -954,7 +954,7 @@
             </div>
           </div>
           <div class="card" style="margin-top:14px;background:#f7fafd;border-style:dashed">
-            <p style="font-size:14.5px"><span class="pill blue">정의</span> &nbsp;본 프로젝트는 계획을 <b>대신 확정하는 자동화</b>하여,
+            <p style="font-size:14.5px"><span class="pill blue">정의</span> &nbsp;본 프로젝트는 계획을 <b>대신 확정하는 자동화</b>가 아니라,
               플래너가 후보안과 근거를 빠르게 검토·승인하는 <b class="ok">Human‑in‑the‑Loop 의사결정지원 시스템</b>이다.</p>
           </div>
           <div class="footnote"><b>* TOS (Terminal Operating System):</b> 터미널 운영 시스템 | <b>* AIS (Automatic
@@ -1118,19 +1118,19 @@
               <td>데이터 (P2)</td>
               <td>시드 60건·RL산출물·SOP 인계 → SFT 증강 · Train/Val/Test 분리 · <b>EDA·검증</b></td>
               <td>유홍성·임석제</td>
-              <td><span class="st done">완료</span></td>
+              <td><span class="st prog">진행중</span></td>
             </tr>
             <tr>
               <td>모델링 (P3)</td>
               <td>베이스 모델 선정·스모크런 완료 → <b>QLoRA 파인튜닝·HP 실험</b></td>
               <td>임석제·박인선</td>
-              <td><span class="st done">완료</span></td>
+              <td><span class="st prog">착수</span></td>
             </tr>
             <tr>
               <td>평가·서빙 (P4·P5)</td>
               <td>정량/LLM‑judge 평가 · INT4 양자화 · FastAPI 서빙 · UI 통합</td>
               <td>박인선·오경환</td>
-              <td><span class="st done">부분 완료</span></td>
+              <td><span class="st next">예정</span></td>
             </tr>
           </table>
           <div class="legend"><span><i style="background:#fff;border:3px solid var(--amber)"></i>마일스톤</span><span><i
@@ -1174,7 +1174,7 @@
             </div>
             <div class="layer">
               <div class="lv" style="background:#1FB585">L1 · 데이터</div>
-              <div class="desc"><b>데이터 어댑터 — Simulated(현재) / 데이터 9종</b><span class="tech">캐노니컬 스키마 ·
+              <div class="desc"><b>데이터 어댑터 — Simulated(현재) /‑Live(실데이터 9종)</b><span class="tech">캐노니컬 스키마 ·
                   EDIFACT</span></div>
             </div>
           </div>
@@ -1301,8 +1301,7 @@
             <div class="card">
               <h4>SCR‑04 · 평가 대시보드 <span class="pill blue" style="margin-left:auto">P1</span></h4>
               <p class="muted">BLEU·<b>ROUGE</b>·BERTScore 전/후 · <b>LLM-as-judge</b> · <b>도메인 용어 포함률</b> · RAGAS ·
-                <b>환각률</b>
-              </p>
+                <b>환각률</b></p>
             </div>
             <div class="card">
               <h4>SCR‑05 · 설정 <span class="pill blue" style="margin-left:auto">P1</span></h4>
@@ -1336,12 +1335,12 @@
                 <li>도메인 시드 <b>60건</b> · 운영 SOP 2종</li>
                 <li>RL 산출물 <b>slot_assignment 337건</b></li>
                 <li>선박제원 · 본선 플래닝 기준 (PDF)</li>
-                <li>SFT 증강 <b class="hl">약 500건</b> (4인 분담 도메인 검수)</li>
+                <li>SFT 증강 <b class="hl">300~500건</b> (4인 분담 도메인 검수)</li>
               </ul>
             </div>
             <div class="card">
               <h4><span class="dot" style="background:var(--teal)"></span>데이터 전략</h4>
-              <p><b>시뮬레이션 우선</b>(SimulatedProvider). 실데이터 도착 시 정제 스크립트만 추가해 <b>SNCTLiveProvider로 어댑터 교체</b> — 상위 레이어 변경
+              <p><b>시뮬레이션 우선</b>(SimulatedProvider). 실데이터 도착 시 정제 스크립트만 추가해 <b>LiveProvider로 어댑터 교체</b> — 상위 레이어 변경
                 없음.</p>
               <p class="muted" style="margin-top:6px">실데이터는 <b>data/real/</b> (git 추적 제외), 공유 샘플은 합성·가명.</p>
             </div>
@@ -1382,7 +1381,7 @@
               <div class="l">Train / Val / Test<br>분할 (seed 고정)</div>
             </div>
             <div class="kpi">
-              <div class="v">337→<br> 약500</div>
+              <div class="v">337→<br>300~500</div>
               <div class="l">원천 slot_assignment<br>→ SFT 증강 규모</div>
             </div>
             <div class="kpi">
@@ -1470,8 +1469,7 @@
           </div>
           <p class="note" style="margin-top:8px;font-size:11.5px">※ <b>인메모리 처리 및 모킹:</b> 본 MVP에서는 파이프라인 중간
             산출물(clean_containers.csv 등)을 물리 파일로 영착하는 대신, <code>SimulatedProvider</code> 및
-            <code>scikit-learn/networkx</code> 등을 통해 <b>메모리 상에서 동적으로 구조화 및 RAG 인덱싱</b>을 처리하도록 구현하였습니다.
-          </p>
+            <code>scikit-learn/networkx</code> 등을 통해 <b>메모리 상에서 동적으로 구조화 및 RAG 인덱싱</b>을 처리하도록 구현하였습니다.</p>
           <div class="footnote"><b>* Canonical Schema (캐노니컬 스키마):</b> 이기종 시스템 간 데이터를 주고받을 수 있게 설계한 일원화된 데이터 포맷 규격</div>
         </div>
         <div class="foot"><span class="pj">데이터 · 전처리</span><span>15</span></div>
@@ -1620,7 +1618,7 @@
             <div class="card"
               style="display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 12px;">
               <h4><span class="dot" style="background: var(--amber);"></span>📊 산출 파일 형식 분포</h4>
-              <img src="pptx_image_3_v3.png" alt="산출 파일 형식 분포"
+              <img src="pptx_image_3.png" alt="산출 파일 형식 분포"
                 style="max-width: 100%; max-height: 290px; object-fit: contain; border-radius: 8px; margin-top: 6px;">
             </div>
           </div>
@@ -1659,14 +1657,14 @@
             <div class="card"
               style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px;">
               <h4 style="align-self: flex-start; margin-left: 8px;"><span class="dot"></span>🎯 SFT 태스크 유형 분포 (상위)</h4>
-              <img src="pptx_image_4_v3.png" alt="SFT 태스크 유형 분포"
+              <img src="pptx_image_4.png" alt="SFT 태스크 유형 분포"
                 style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 6px; margin-top: 6px;">
             </div>
             <div class="card"
               style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px;">
               <h4 style="align-self: flex-start; margin-left: 8px;"><span class="dot"
                   style="background: var(--teal);"></span>📚 RAG 청크 규모 (코퍼스별, 상위)</h4>
-              <img src="pptx_image_1_v3.png" alt="RAG 청크 규모"
+              <img src="pptx_image_1.png" alt="RAG 청크 규모"
                 style="max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 6px; margin-top: 6px;">
             </div>
           </div>
@@ -1726,7 +1724,7 @@
             <div class="card"
               style="display: flex; flex-direction: column; justify-content: space-between; padding: 14px 18px;">
               <h4><span class="dot" style="background: var(--teal);"></span>🤖 강화학습 최종 라운드(Lv4) KPI — BL · SF · EF</h4>
-              <img src="pptx_image_2_v3.png" alt="강화학습 3-way 정책 비교"
+              <img src="pptx_image_2.png" alt="강화학습 3-way 정책 비교"
                 style="max-width: 100%; max-height: 150px; object-fit: contain; border-radius: 6px; margin: 4px 0;">
               <div style="font-size: 12.5px; line-height: 1.45;">
                 <p>• <b>핵심 관찰</b>: EF 정책이 Reward(1,464.5) · VPR(0.9997) · WBI(0.954) 최고</p>
@@ -1874,8 +1872,7 @@
                 <p>• <b>구조화 청킹:</b> 무작위 글자 수 슬라이싱을 지양하고, 법률/규정은 <b>조항·섹션</b>, EDI는 <b>세그먼트</b>, 적재계획 기술문서는 <b>서브챕터</b>
                   단위로 의미 구조에 맞춰 분할.</p>
                 <p style="margin-top: 4px;">• <b>메타데이터 부여:</b> <code>doc_type</code>, <code>section</code>,
-                  <code>actors</code>, <code>security_level</code> 등 페이로드 필드를 모든 청크에 고정 부여하여 하이브리드 필터링 색인 정밀도 극대화.
-                </p>
+                  <code>actors</code>, <code>security_level</code> 등 페이로드 필드를 모든 청크에 고정 부여하여 하이브리드 필터링 색인 정밀도 극대화.</p>
                 <p style="margin-top: 4px;">• <b>출처 고정 (Grounding):</b> SFT 데이터셋 및 프롬프트 튜닝 단계에서 외부 정보 개입(환각) 및 임의적 운영
                   판단을 금지하고, <b>"답변 시 반드시 본문에 명시된 출처(SOP 조항 등)를 인용할 것"</b>을 프롬프트 레벨에서 강제.</p>
                 <p style="margin-top: 4px;">• <b>3트랙 정합성 체크:</b> 공유 키 <code>chunk_id</code> 무결성 검사 스크립트를 빌드 파이프라인에 탑재하여
@@ -2173,10 +2170,8 @@
             </div>
             <div class="card">
               <h4><span class="dot" style="background:var(--teal)"></span>도메인 SLM 평가 (트랙1)</h4>
-              <p style="font-size:13px;margin-bottom:8px"><b>정량</b> — BLEU · <b>ROUGE</b> · BERTScore · EM · <b>용어
-                  포함률</b> ·
-                <b>환각률</b>
-              </p>
+              <p style="font-size:13px;margin-bottom:8px"><b>정량</b> — BLEU · ROUGE · BERTScore · EM · <b>용어 포함률</b> ·
+                <b>환각률</b></p>
               <p style="font-size:13px;margin-bottom:8px"><b>정성</b> — LLM‑judge(정확성·근거성·용어) · 골든셋 30문항 before/after</p>
               <p style="font-size:13px"><b>평가 시나리오 3종</b> — 일반 / 피크 / 특수화물(DG·Reefer)</p>
               <div class="card" style="margin-top:10px;background:#f7fafd;padding:10px 14px;box-shadow:none">
@@ -2224,7 +2219,7 @@
               <h4><span class="dot" style="background:var(--blue2)"></span>플랫폼 확장 (차기)</h4>
               <ul>
                 <li>실데이터 9종 어댑터 교체 (Tier1 코어 우선)</li>
-                <li><b>RL 구현</b></li>
+                <li><b>RL vs CP‑SAT 벤치마크</b> → 조건부 엔진 교체</li>
                 <li>멀티에이전트 통합(RL+온톨로지+GraphRAG)</li>
                 <li>실시간 TOS/AIS 스트리밍 · 멀티 선석</li>
                 <li>Edge INT4 배포 · 도메인 SLM 고도화</li>

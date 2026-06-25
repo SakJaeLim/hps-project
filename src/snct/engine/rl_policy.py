@@ -1,13 +1,36 @@
 """현 엔진(MVP) — PPO 기반 RL 적재 정책.
 Gymnasium 환경(SingleBayStowageEnv)에서 학습된 PPO 에이전트(BL, SF, EF)를 사용하거나,
-체크포인트가 없는 경우 Greedy 폴백 기반 행동을 수행한다."""
+체크포인트가 없거나 패키지가 없는 경우 Greedy 폴백 기반 행동을 수행한다."""
 import os
 import sys
 import numpy as np
-import torch
-import gymnasium as gym
 from snct.engine.base import StowageStrategy
-from snct.common.schema import YardState, CandidatePlan, Assignment, Slot, Container
+from snct.common.schema import YardState, CandidatePlan, Assignment
+
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+    class nn:
+        class Module:
+            pass
+
+try:
+    import gymnasium as gym
+    GYM_AVAILABLE = True
+except ImportError:
+    gym = None
+    GYM_AVAILABLE = False
+
+try:
+    from stable_baselines3 import PPO
+    SB3_AVAILABLE = True
+except ImportError:
+    PPO = None
+    SB3_AVAILABLE = False
 
 # PPO Constants matching the training notebook
 MAX_ROWS = 10
@@ -29,47 +52,112 @@ POD_MAP = {
 }
 
 # --- Apply NumPy and pickle patches for loading compatibility ---
-# Set NumPy alias mapping
-sys.modules['numpy._core'] = np.core
-sys.modules['numpy.random._pcg64'] = np.random
+try:
+    sys.modules.setdefault("numpy._core", np.core)
+    sys.modules.setdefault("numpy.random._pcg64", np.random)
+    import numpy.random._pickle as _pickle
+    from numpy.random import PCG64
+    _pickle.BitGenerators[PCG64] = PCG64
+except Exception:
+    pass
 
-import numpy.random._pickle as _pickle
-from numpy.random import PCG64
-_pickle.BitGenerators[PCG64] = PCG64
+
+class DQNetwork(nn.Module):
+    """Simple DQN network for backward compatibility."""
+
+    def __init__(self, obs_dim: int, n_actions: int):
+        super().__init__()
+        if TORCH_AVAILABLE:
+            self.net = nn.Sequential(
+                nn.Linear(obs_dim, 128),
+                nn.ReLU(),
+                nn.Linear(128, 64),
+                nn.ReLU(),
+                nn.Linear(64, n_actions),
+            )
+
+    def forward(self, x):
+        if TORCH_AVAILABLE:
+            return self.net(x)
+        raise RuntimeError("PyTorch is not available.")
+
 
 class RLStrategy(StowageStrategy):
     name = "rl"
 
-    def __init__(self, model_type: str = "BL", checkpoint_dir: str | None = None):
-        self.model_type = model_type
+    def __init__(
+        self,
+        model_type: str = "BL",
+        checkpoint_dir: str | None = None,
+        checkpoint: str | None = None,
+    ):
+        self.model_type = (model_type or "BL").upper()
+        self.checkpoint = self._resolve_checkpoint(checkpoint_dir, checkpoint)
         self.model = None
-        
+
+        if not SB3_AVAILABLE:
+            print("[RLStrategy] stable-baselines3 is not available. Running with greedy fallback.")
+            return
+
+        if not self.checkpoint or not os.path.isfile(self.checkpoint):
+            print(f"[RLStrategy] Warning: checkpoint not found: {self.checkpoint}. Running with greedy fallback.")
+            return
+
         try:
-            from stable_baselines3 import PPO
-            # Determine base dir
-            base_dir = os.environ.get("SNCT_BASE_DIR", r"c:\Users\lione\Desktop\aSSIST\19_Project\12_hps-project-main")
-            if not checkpoint_dir:
-                checkpoint_dir = os.path.join(base_dir, "data", "RL", "강화학습 결과 자료", "single_bay_6pod_ppo_v13_3way_ALL_models_seed42")
-            
-            # Explicitly target the .zip file to avoid directory permission/loading errors
-            model_path = os.path.join(checkpoint_dir, f"single_bay_6pod_ppo_v13_3way_{model_type}_seed42.zip")
-            
-            if os.path.exists(model_path) and os.path.isfile(model_path):
-                # Define spaces explicitly to override deserialization mismatch
+            custom_objects = {}
+            if GYM_AVAILABLE:
                 observation_space = gym.spaces.Box(low=-2.0, high=2.0, shape=(OBS_DIM,), dtype=np.float32)
                 action_space = gym.spaces.Discrete(MAX_ROWS)
-
                 custom_objects = {
                     "observation_space": observation_space,
-                    "action_space": action_space
+                    "action_space": action_space,
                 }
-                
-                self.model = PPO.load(model_path, device="cpu", custom_objects=custom_objects)
-                print(f"[RLStrategy] Loaded PPO model type: {model_type} from {model_path}")
-            else:
-                print(f"[RLStrategy] Warning: Checkpoint path not found or is not a file: {model_path}. Running with greedy fallback.")
+
+            self.model = PPO.load(self.checkpoint, device="cpu", custom_objects=custom_objects or None)
+            if hasattr(self.model, "policy"):
+                self.model.policy.set_training_mode(False)
+            print(f"[RLStrategy] Loaded PPO model type: {self.model_type} from {self.checkpoint}")
         except Exception as e:
             print(f"[RLStrategy] Error loading PPO model: {e}. Running with greedy fallback.")
+
+    def _resolve_checkpoint(self, checkpoint_dir: str | None, checkpoint: str | None) -> str | None:
+        if checkpoint:
+            return checkpoint
+
+        filename = f"single_bay_6pod_ppo_v13_3way_{self.model_type}_seed42.zip"
+        engine_dir = os.path.dirname(__file__)
+        repo_root = os.path.abspath(os.path.join(engine_dir, "..", "..", ".."))
+        base_dir = os.environ.get("SNCT_BASE_DIR") or os.environ.get("HPS_BASE_DIR") or repo_root
+
+        candidate_dirs = []
+        if checkpoint_dir:
+            candidate_dirs.append(checkpoint_dir)
+        candidate_dirs.append(
+            os.path.join(
+                base_dir,
+                "data",
+                "RL",
+                "강화학습 결과 자료",
+                "single_bay_6pod_ppo_v13_3way_ALL_models_seed42",
+            )
+        )
+        if self.model_type == "SF":
+            candidate_dirs.append(os.path.join(engine_dir, "weights"))
+
+        candidates = [os.path.join(path, filename) for path in candidate_dirs]
+        for path in candidates:
+            if os.path.isfile(path):
+                return path
+        return candidates[0] if candidates else None
+
+    def _get_pod_id(self, pod: str) -> int:
+        p = str(pod).upper()
+        if p in POD_MAP:
+            return POD_MAP[p]
+        for key, value in POD_MAP.items():
+            if key in p:
+                return value
+        return 6
 
     def _to_obs(self, wt_grid: np.ndarray, pod_grid: np.ndarray, stack_h: np.ndarray,
                 ctns_wt: np.ndarray, ctns_pod: np.ndarray, step_idx: int,
@@ -101,7 +189,9 @@ class RLStrategy(StowageStrategy):
         if step_idx < n_containers:
             w = float(ctns_wt[step_idx]) / MAX_WT
             pod = int(ctns_pod[step_idx])
-            pod_oh = np.eye(N_POD, dtype=np.float32)[pod - 1]
+            pod_oh = np.zeros(N_POD, dtype=np.float32)
+            if 1 <= pod <= N_POD:
+                pod_oh[pod - 1] = 1.0
             cur_feats = np.array([w, *pod_oh], dtype=np.float32)
         else:
             cur_feats = np.zeros(1 + N_POD, dtype=np.float32)
@@ -154,15 +244,14 @@ class RLStrategy(StowageStrategy):
         # Sort containers to match curriculum ordering (POD descending, weight descending)
         containers = list(yard.queue)
         def get_sort_key(c):
-            pod_name = str(c.pod).upper()
-            pod_idx = POD_MAP.get(pod_name, 6)
+            pod_idx = self._get_pod_id(c.pod)
             return (-pod_idx, -c.weight_ton)
             
         sorted_indices = sorted(range(len(containers)), key=lambda i: get_sort_key(containers[i]))
         
         n_containers = len(containers)
         ctns_wt = np.array([c.weight_ton for c in containers], dtype=np.float32)[sorted_indices]
-        ctns_pod = np.array([POD_MAP.get(str(c.pod).upper(), 6) for c in containers], dtype=np.int32)[sorted_indices]
+        ctns_pod = np.array([self._get_pod_id(c.pod) for c in containers], dtype=np.int32)[sorted_indices]
         
         # Initialize board representation (10x10 grids)
         wt_grid = np.zeros((MAX_ROWS, N_TIERS), dtype=np.float32)
@@ -183,7 +272,7 @@ class RLStrategy(StowageStrategy):
             if self.model is not None:
                 obs = self._to_obs(wt_grid, pod_grid, stack_h, ctns_wt, ctns_pod, step_idx, n_containers, n_valid)
                 action, _ = self.model.predict(obs, deterministic=True)
-                ppo_action = int(action)
+                ppo_action = int(np.asarray(action).item())
                 
             # 2. Try the predicted action first
             chosen_slot = None
@@ -245,7 +334,7 @@ class RLStrategy(StowageStrategy):
                 if 0 <= r_idx < MAX_ROWS:
                     t_idx = min(stack_h[r_idx], N_TIERS - 1)
                     wt_grid[r_idx, t_idx] = container.weight_ton
-                    pod_grid[r_idx, t_idx] = POD_MAP.get(str(container.pod).upper(), 6)
+                    pod_grid[r_idx, t_idx] = self._get_pod_id(container.pod)
                     stack_h[r_idx] += 1
             else:
                 # No slot could be allocated (yard full or constraint violation)
