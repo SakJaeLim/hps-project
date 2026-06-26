@@ -290,6 +290,7 @@ def get_metrics() -> dict:
             base_accuracy = []; base_grounding = []; base_terminology = []
             ft_accuracy = []; ft_grounding = []; ft_terminology = []
             base_rouge = []; ft_rouge = []; base_terms = []; ft_terms = []
+            rows = []
 
             with open(EVAL_CSV_PATH, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -305,6 +306,32 @@ def get_metrics() -> dict:
                     ft_rouge.append(float(row["ft_rouge_l"]))
                     base_terms.append(float(row["base_term_rate"]))
                     ft_terms.append(float(row["ft_term_rate"]))
+                    rows.append(row)
+
+            # Calculate dynamic hallucination rate: portion of outputs with ROUGE-L < 0.3
+            base_low = sum(1 for r in base_rouge if r < 0.3)
+            ft_low = sum(1 for r in ft_rouge if r < 0.3)
+            base_halluc_rate = f"{int(base_low / len(base_rouge) * 100)}%" if base_rouge else "18%"
+            ft_halluc_rate = f"{int(ft_low / len(ft_rouge) * 100)}%" if ft_rouge else "7%"
+
+            # Extract top 3 improved samples
+            samples = []
+            try:
+                sorted_rows = sorted(
+                    rows,
+                    key=lambda x: float(x.get("ft_rouge_l", 0)) - float(x.get("base_rouge_l", 0)),
+                    reverse=True
+                )
+                for r in sorted_rows[:3]:
+                    gap = float(r.get("ft_rouge_l", 0)) - float(r.get("base_rouge_l", 0))
+                    samples.append({
+                        "question": r.get("question", ""),
+                        "base": r.get("base_output", ""),
+                        "ft": r.get("ft_output", ""),
+                        "score_gap": f"+{int(gap * 100)}%p"
+                    })
+            except Exception as sort_err:
+                print(f"Error sorting samples: {sort_err}")
 
             return {
                 "model_info": {
@@ -327,7 +354,8 @@ def get_metrics() -> dict:
                     "ft_grounding": round(statistics.mean(ft_grounding), 2) if ft_grounding else 4.7,
                     "ft_terminology": round(statistics.mean(ft_terminology), 2) if ft_terminology else 4.6
                 },
-                "hallucination": {"base": "18%", "ft": "7%"}
+                "hallucination": {"base": base_halluc_rate, "ft": ft_halluc_rate},
+                "samples": samples
             }
         except Exception as e:
             print(f"Error parsing CSV: {e}")
@@ -343,7 +371,8 @@ def get_metrics() -> dict:
         "quant": {"base_rouge": 31.2, "ft_rouge": 88.5, "base_term": 20.0, "ft_term": 92.4},
         "qual": {"base_accuracy": 2.5, "base_grounding": 2.0, "base_terminology": 2.2,
                  "ft_accuracy": 4.8, "ft_grounding": 4.7, "ft_terminology": 4.6},
-        "hallucination": {"base": "18%", "ft": "7%"}
+        "hallucination": {"base": "18%", "ft": "7%"},
+        "samples": []
     }
 
 
