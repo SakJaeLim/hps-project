@@ -115,9 +115,21 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             from transformers import AutoTokenizer
             is_vl = "vl" in model_path.lower()
             if is_vl:
-                print("VL model detected, using AutoModelForVision2Seq...")
-                from transformers import AutoModelForVision2Seq
-                model_class = AutoModelForVision2Seq
+                print("VL model detected, resolving appropriate model class...")
+                try:
+                    from transformers import Qwen2_5_VLForConditionalGeneration
+                    model_class = Qwen2_5_VLForConditionalGeneration
+                except ImportError:
+                    try:
+                        from transformers import Qwen2VLForConditionalGeneration
+                        model_class = Qwen2VLForConditionalGeneration
+                    except ImportError:
+                        try:
+                            from transformers import AutoModelForImageTextToText
+                            model_class = AutoModelForImageTextToText
+                        except ImportError:
+                            from transformers import AutoModelForCausalLM
+                            model_class = AutoModelForCausalLM
             else:
                 from transformers import AutoModelForCausalLM
                 model_class = AutoModelForCausalLM
