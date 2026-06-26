@@ -3,6 +3,7 @@ gymnasium
 numpy
 pandas
 torch
+matplotlib
 
 # --- Domain SLM / RAG (Track 1) ---
 transformers
@@ -25,3 +26,4 @@ stable-baselines3
 # --- Dev ---
 pytest
 python-dotenv
+rouge
