@@ -192,6 +192,161 @@ if "chat_history" not in st.session_state:
 if "local_history" not in st.session_state:
     st.session_state.local_history = []
 
+def draw_bay_plan_fig(res):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+    import re
+    
+    # Matplotlib settings for Korean font and styling
+    plt.rcParams['font.family'] = 'Malgun Gothic'
+    plt.rcParams['axes.unicode_minus'] = False
+    
+    assignments = res.get("assignments", [])
+    slots = res.get("slots", [])
+    if not assignments or not slots:
+        return None
+        
+    # Get all row and tier numbers
+    rows = sorted(list(set(s["row"] for s in slots)))
+    tiers = sorted(list(set(s["tier"] for s in slots)))
+    
+    # Grid dimensions
+    n_rows = len(rows)
+    n_tiers = len(tiers)
+    
+    # Map row and tier names to 0-based indices
+    row_to_idx = {r: idx for idx, r in enumerate(rows)}
+    tier_to_idx = {t: idx for idx, t in enumerate(tiers)}
+    
+    # Map grid coordinates
+    pod_grid = np.zeros((n_tiers, n_rows), dtype=int)
+    weight_grid = np.zeros((n_tiers, n_rows), dtype=float)
+    
+    # Mapping table of PODs to indices 1..6
+    POD_MAP = {
+        "BUSAN": 1, "BUSAN(1)": 1,
+        "SHANGHAI": 2, "SHANGHAI(2)": 2,
+        "NINGBO": 3, "NINGBO(3)": 3,
+        "SINGAPORE": 4, "SINGAPORE(4)": 4,
+        "COLOMBO": 5, "COLOMBO(5)": 5,
+        "ROTTERDAM": 6, "ROTTERDAM(6)": 6,
+        "LAX": 6
+    }
+    
+    # Map assigned containers
+    for a in assignments:
+        row = a["row"]
+        tier = a["tier"]
+        pod_name = str(a.get("pod", "")).upper()
+        # Clean up name if it has numbers
+        pod_clean = re.sub(r'[^A-Z]', '', pod_name)
+        pod_id = POD_MAP.get(pod_clean, 6)
+        if pod_clean == "":
+            try:
+                pod_id = int(re.search(r'\d+', pod_name).group())
+            except Exception:
+                pod_id = 6
+        
+        wt = float(a.get("weight_ton", 0.0))
+        
+        if row in row_to_idx and tier in tier_to_idx:
+            r_idx = row_to_idx[row]
+            t_idx = tier_to_idx[tier]
+            pod_grid[t_idx, r_idx] = pod_id
+            weight_grid[t_idx, r_idx] = wt
+            
+    # Setup Colors & Names
+    POD_COLORS = {
+        0: "#E2E8F0",  # Empty
+        1: "#3A86C8",  # Busan
+        2: "#48CAE4",  # Shanghai
+        3: "#00B4D8",  # Ningbo
+        4: "#90E0EF",  # Singapore
+        5: "#FFB703",  # Colombo
+        6: "#FB8500",  # Rotterdam
+    }
+    POD_NAMES = {
+        1: "Busan(1)", 2: "Shanghai(2)", 3: "Ningbo(3)", 4: "Singapore(4)", 5: "Colombo(5)", 6: "Rotterdam(6)"
+    }
+    POD_DISPLAY_NAMES = {
+        1: "Bus", 2: "Sha", 3: "Nin", 4: "Sin", 5: "Col", 6: "Rot"
+    }
+    
+    # Matplotlib plot
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6.8))
+    
+    # 1. POD Plot
+    ax = axes[0]
+    for t in range(n_tiers):
+        for r in range(n_rows):
+            pod_id = pod_grid[t, r]
+            cell_color = POD_COLORS.get(pod_id, "#E2E8F0")
+            rect = plt.Rectangle((r - 0.5, t - 0.5), 1.0, 1.0, facecolor=cell_color, edgecolor="#cbd5e1", linewidth=1.5)
+            ax.add_patch(rect)
+            
+            if pod_id > 0:
+                lbl = f"{POD_DISPLAY_NAMES.get(pod_id, 'POD')}({pod_id})"
+                ax.text(r, t, lbl, ha="center", va="center", color="white" if pod_id in [1, 3, 6] else "#1e293b", fontweight="bold", fontsize=10)
+                
+    ax.set_title("【POD 분포 (Discharge Port Plan)】", fontsize=12, fontweight="bold", pad=12)
+    ax.set_xticks(range(n_rows))
+    ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
+    ax.set_yticks(range(n_tiers))
+    ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
+    ax.set_xlim(-0.5, n_rows - 0.5)
+    ax.set_ylim(-0.5, n_tiers - 0.5)
+    ax.set_xlabel("Row (열)", fontsize=11, labelpad=8)
+    ax.set_ylabel("Tier (단)", fontsize=11, labelpad=8)
+    ax.grid(False)
+    
+    legend_patches = [mpatches.Patch(color=POD_COLORS[i], label=POD_NAMES[i]) for i in range(1, 7)]
+    ax.legend(handles=legend_patches, bbox_to_anchor=(0.5, -0.18), loc="upper center", ncol=3, frameon=True, facecolor="#f8fafc", edgecolor="#e2e8f0", fontsize=9)
+
+    # 2. Weight Plot
+    ax = axes[1]
+    # Check max weight to scale colormap
+    max_w = max(20.0, weight_grid.max())
+    im = ax.imshow(weight_grid, cmap="Blues", origin="lower", aspect="equal", vmin=0.0, vmax=max_w)
+    
+    for t in range(n_tiers):
+        for r in range(n_rows):
+            wt = weight_grid[t, r]
+            if wt > 0:
+                ax.text(r, t, f"{wt:.1f}t", ha="center", va="center", color="black" if wt < 12.0 else "white", fontweight="bold", fontsize=10)
+                
+    ax.set_title("【무게 분포 (Weight Distribution)】", fontsize=12, fontweight="bold", pad=12)
+    ax.set_xticks(range(n_rows))
+    ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
+    ax.set_yticks(range(n_tiers))
+    ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
+    ax.set_xlim(-0.5, n_rows - 0.5)
+    ax.set_ylim(-0.5, n_tiers - 0.5)
+    ax.set_xlabel("Row (열)", fontsize=11, labelpad=8)
+    ax.grid(False)
+    
+    cbar = fig.colorbar(im, ax=ax, orientation="vertical", shrink=0.7, pad=0.05)
+    cbar.set_label("중량 (Metric Tons)", fontsize=9, labelpad=8)
+    
+    # Determine curriculum level label
+    if n_rows == 4:
+        level_num = "LV1"
+    elif n_rows == 6:
+        level_num = "LV2"
+    elif n_rows == 8:
+        level_num = "LV3"
+    elif n_rows == 10:
+        level_num = "LV4"
+    else:
+        level_num = f"{n_rows}R"
+        
+    fig.suptitle(f"PPO 강화학습 최적 배정 분포 ({level_num} - {n_rows}R × {n_tiers}T)", fontsize=15, fontweight="bold", color="#1E3A8A", y=0.98)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.88, bottom=0.22)
+    
+    return fig
+
 # Mock fallbacks matching API logic
 def local_mock_inference(model_name: str, prompt: str) -> str:
     """Fallback mock inference for testing UI without backend API."""
@@ -487,11 +642,24 @@ elif page == "적재 계획 (Planning)":
     st.markdown("### 🚢 스마트 적재 계획 생성기")
     st.markdown("<p style='font-size: 13px; color: #4a5568;'>엔진(Greedy/RL)을 선택하고 적재 계획을 요청하면, 에이전트가 계획 수립, 제약 검증, 그리고 규정에 기반한 근거 설명을 자동으로 수행합니다.</p>", unsafe_allow_html=True)
     
-    col_opt1, col_opt2 = st.columns(2)
+    col_opt1, col_opt2, col_opt3 = st.columns(3)
     with col_opt1:
-        engine_choice = st.selectbox("최적화 엔진 선택", ["greedy", "rl"])
+        engine_choice = st.selectbox("최적화 엔진 선택", ["greedy", "rl_bl", "rl_sf", "rl_ef"])
     with col_opt2:
-        vessel_id = st.text_input("Vessel ID", "VESSEL-001")
+        level_choice = st.selectbox("학습 단계 (Curriculum Level)", [
+            "Level 4 (10R × 10T)",
+            "Level 3 (8R × 8T)",
+            "Level 2 (6R × 6T)",
+            "Level 1 (4R × 4T)"
+        ])
+    with col_opt3:
+        level_to_vessel = {
+            "Level 4 (10R × 10T)": "VESSEL-LV4",
+            "Level 3 (8R × 8T)": "VESSEL-LV3",
+            "Level 2 (6R × 6T)": "VESSEL-LV2",
+            "Level 1 (4R × 4T)": "VESSEL-LV1",
+        }
+        vessel_id = st.text_input("Vessel ID", level_to_vessel[level_choice])
         
     plan_query = st.text_area("작업 지시 입력", "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.")
     
@@ -522,6 +690,12 @@ elif page == "적재 계획 (Planning)":
                         st.dataframe(pd.DataFrame(res["violations"]), use_container_width=True)
                     else:
                         st.success("✅ 위반 사항 없음")
+                
+                # Render Bay Plan Visualizations
+                st.markdown("### 📊 적재 계획 시각화 (Bay Plan)")
+                fig = draw_bay_plan_fig(res)
+                if fig:
+                    st.pyplot(fig)
             else:
                 st.error("API 호출 실패. 백엔드 서버 상태를 확인하세요.")
 
