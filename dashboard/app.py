@@ -745,12 +745,7 @@ elif page == "RL 적재 설명 (xAI)":
                 policy_dir = v13_dir / curr_policy
                 
                 img_files = [
-                    "fig1_cumulative_reward_steps.png",
-                    "fig2_per_round_cumulative.png",
-                    "fig3_kpi_bar.png",
-                    "fig4_radar.png",
-                    f"fig5_bay_plan_PPO_{curr_policy}.png",
-                    "fig6_stepwise_reward.png"
+                    f"fig5_bay_plan_PPO_{curr_policy}.png"
                 ]
                 
                 existing_imgs = []
@@ -761,7 +756,7 @@ elif page == "RL 적재 설명 (xAI)":
                 
                 if existing_imgs:
                     st.write("---")
-                    st.markdown("### 📊 강화학습 훈련 결과 시각화")
+                    st.markdown("### 📊 최적 적재 배치도 (Optimal Stowage Plan)")
                     cols = st.columns(2)
                     for idx, (path, name) in enumerate(existing_imgs):
                         caption_name = name.split("_", 1)[1].replace(".png", "").replace("_", " ").title()
