@@ -69,6 +69,54 @@ def resolve_local_model_path(model_path):
                 pass
     return None
 
+def get_llm_judge_scores(model, tokenizer, question, reference, model_output):
+    prompt = f"""[System]
+Rate the response accuracy, grounding compliance, and terminology on a scale of 1.0 to 5.0.
+Provide only JSON format:
+{{"accuracy": X.X, "grounding": Y.Y, "terminology": Z.Z}}
+Do not write explanations.
+
+[Context]
+Question: {question}
+Reference Answer: {reference}
+Model Response to Evaluate: {model_output}
+
+JSON:"""
+    try:
+        messages = [{"role": "user", "content": prompt}]
+        formatted = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = tokenizer(formatted, return_tensors="pt").to(model.device)
+        import torch
+        with torch.no_grad():
+            generated_ids = model.generate(**inputs, max_new_tokens=40, do_sample=False, temperature=0.0)
+        generated_ids = [output_ids[len(input_ids):] for input_ids, output_ids in zip(inputs.input_ids, generated_ids)]
+        resp = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
+        
+        import json
+        import re
+        json_match = re.search(r'\{.*?\}', resp, re.DOTALL)
+        if json_match:
+            scores = json.loads(json_match.group(0))
+            return {
+                "accuracy": min(max(float(scores.get("accuracy", 3.0)), 1.0), 5.0),
+                "grounding": min(max(float(scores.get("grounding", 3.0)), 1.0), 5.0),
+                "terminology": min(max(float(scores.get("terminology", 3.0)), 1.0), 5.0)
+            }
+    except Exception as e:
+        print(f"LLM Judge error: {e}")
+    return None
+
+def detect_hallucination(reference, response, rouge_score):
+    if rouge_score < 0.2:
+        return 1
+    import re
+    ref_bays = set(re.findall(r'BAY\d+', reference.upper()))
+    resp_bays = set(re.findall(r'BAY\d+', response.upper()))
+    if ref_bays and resp_bays:
+        if not (ref_bays & resp_bays):
+            return 1
+    return 0
+
 DOMAIN_TERMS = [
     "Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG", 
     "segregation", "overstow", "rehandling", "BAPLIE", "COPINO", 
@@ -96,7 +144,7 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     # We will write a lightweight evaluation loop
     # If transformers can load the models, we use them. Otherwise, we can query via HF API or mock.
     
-    def generate_outputs(model_path, items):
+    def generate_outputs(model_path, items, base_outputs_to_judge=None):
         import requests as req
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
         
@@ -170,6 +218,23 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
                 response = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
                 outputs.append(response)
                 
+            # Perform LLM-as-a-Judge scoring if evaluating FT model with base outputs provided
+            if base_outputs_to_judge is not None:
+                print("Running LLM-as-a-Judge evaluation for Base and FT outputs...")
+                nonlocal base_scores, ft_scores
+                base_scores = []
+                ft_scores = []
+                for idx, item in enumerate(items):
+                    print(f"Judging item [{idx+1}/{len(items)}]...")
+                    q = item.get("input", "")
+                    ref = item.get("output", "")
+                    
+                    ft_score = get_llm_judge_scores(model, tokenizer, q, ref, outputs[idx])
+                    ft_scores.append(ft_score)
+                    
+                    base_score = get_llm_judge_scores(model, tokenizer, q, ref, base_outputs_to_judge[idx])
+                    base_scores.append(base_score)
+                
         elif hf_token and model_path and "/" in model_path:
             print(f"Querying Hugging Face Inference API for model: {model_path}")
             api_failed = False
@@ -207,13 +272,16 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             for item in items:
                 outputs.append(get_mock_output(model_path, item))
                     
-        return outputs
+        return outputs, base_scores, ft_scores
+
+    base_scores = None
+    ft_scores = None
 
     print("Generating base model outputs...")
-    base_outputs = generate_outputs(base_model_path, golden_items)
+    base_outputs, _, _ = generate_outputs(base_model_path, golden_items)
     
     print("Generating fine-tuned model outputs...")
-    ft_outputs = generate_outputs(ft_model_path, golden_items)
+    ft_outputs, base_scores, ft_scores = generate_outputs(ft_model_path, golden_items, base_outputs_to_judge=base_outputs)
     
     # Evaluate
     rouge = Rouge()
@@ -254,21 +322,26 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         base_terms.append(base_t)
         ft_terms.append(ft_t)
         
-        # LLM-as-judge (Heuristic implementation)
-        # Base: Accuracy 2.5, Grounding 2.0, Terminology 2.2
-        # FT: Accuracy 4.8, Grounding 4.7, Terminology 4.6
-        if base_model_path is not None and "base" in base_model_path.lower() and not os.path.exists(base_model_path):
-
-            base_judge = {"accuracy": 2.5, "grounding": 2.0, "terminology": 2.2}
-            ft_judge = {"accuracy": 4.8, "grounding": 4.7, "terminology": 4.6}
+        # Hallucination check
+        base_halluc = detect_hallucination(ref, base_out, base_r)
+        ft_halluc = detect_hallucination(ref, ft_out, ft_r)
+        
+        # LLM-as-judge Score assignment (use LLM judge if base_scores / ft_scores exist)
+        b_score = base_scores[i] if (base_scores and i < len(base_scores)) else None
+        f_score = ft_scores[i] if (ft_scores and i < len(ft_scores)) else None
+        
+        if b_score:
+            base_judge = b_score
         else:
-            # If real model outputs are used, calculate dynamically
-            # Score based on keyword overlaps and similarity
             base_judge = {
                 "accuracy": round(3.0 + 2.0 * base_r, 2),
                 "grounding": round(2.0 + 3.0 * ("근거" in base_out or "SOP" in base_out), 2),
                 "terminology": round(2.0 + 3.0 * (base_t > 0.3), 2)
             }
+            
+        if f_score:
+            ft_judge = f_score
+        else:
             ft_judge = {
                 "accuracy": round(3.0 + 2.0 * ft_r, 2),
                 "grounding": round(2.0 + 3.0 * ("근거" in ft_out or "SOP" in ft_out), 2),
@@ -291,7 +364,9 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             "base_terminology": base_judge["terminology"],
             "ft_accuracy": ft_judge["accuracy"],
             "ft_grounding": ft_judge["grounding"],
-            "ft_terminology": ft_judge["terminology"]
+            "ft_terminology": ft_judge["terminology"],
+            "base_hallucinated": base_halluc,
+            "ft_hallucinated": ft_halluc
         })
         
     # Write to CSV
