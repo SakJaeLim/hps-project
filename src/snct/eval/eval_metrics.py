@@ -35,6 +35,40 @@ def get_mock_output(model_path, item):
     else:
         return item.get("output", "")
 
+def resolve_local_model_path(model_path):
+    if not model_path:
+        return None
+    # 1. Direct path check
+    if os.path.exists(model_path):
+        return model_path
+    # 2. Expand user home directory
+    expanded = os.path.expanduser(model_path)
+    if os.path.exists(expanded):
+        return expanded
+    # 3. Check for specific common directories
+    if "portslm-merged" in model_path.lower():
+        paths = ["/root/portslm-merged", os.path.expanduser("~/portslm-merged")]
+        for p in paths:
+            if os.path.exists(p):
+                return p
+    # 4. Search Hugging Face cache
+    if "/" in model_path:
+        repo_name = "models--" + model_path.replace("/", "--")
+        cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
+        snapshots_dir = os.path.join(cache_dir, repo_name, "snapshots")
+        if os.path.exists(snapshots_dir):
+            try:
+                snapshots = os.listdir(snapshots_dir)
+                if snapshots:
+                    # Pick the snapshot dir containing config.json
+                    for snap in snapshots:
+                        snap_path = os.path.join(snapshots_dir, snap)
+                        if os.path.exists(os.path.join(snap_path, "config.json")):
+                            return snap_path
+            except Exception:
+                pass
+    return None
+
 DOMAIN_TERMS = [
     "Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG", 
     "segregation", "overstow", "rehandling", "BAPLIE", "COPINO", 
@@ -66,10 +100,13 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         import requests as req
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
         
-        # Check if model path exists locally
+        # Check if model path exists locally or in HF cache
+        resolved_path = resolve_local_model_path(model_path)
         use_local_model = False
-        if model_path and os.path.exists(model_path):
+        if resolved_path:
             use_local_model = True
+            model_path = resolved_path
+            
             
         outputs = []
         if use_local_model:
