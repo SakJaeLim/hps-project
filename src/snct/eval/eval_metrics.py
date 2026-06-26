@@ -3,6 +3,7 @@ import json
 import csv
 import statistics
 import argparse
+from pathlib import Path
 from rouge import Rouge
 
 # Fallback tokenization if Mecab fails
@@ -40,18 +41,20 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     print(f"Loaded {len(golden_items)} items.")
     
     # We will write a lightweight evaluation loop
-    # If transformers can load the models, we use them. Otherwise, we can mock/simulate model outputs
-    # for testing purposes if the models are not yet trained.
+    # If transformers can load the models, we use them. Otherwise, we can query via HF API or mock.
     
     def generate_outputs(model_path, items):
-        # Check if model path exists and is valid
-        use_real_model = False
+        import requests as req
+        hf_token = os.environ.get("HF_TOKEN", "")
+        
+        # Check if model path exists locally
+        use_local_model = False
         if model_path and os.path.exists(model_path):
-            use_real_model = True
+            use_local_model = True
             
         outputs = []
-        if use_real_model:
-            print(f"Loading model for inference: {model_path}")
+        if use_local_model:
+            print(f"Loading local model for inference: {model_path}")
             import torch
             from transformers import AutoTokenizer
             is_vl = "vl" in model_path.lower()
@@ -94,13 +97,34 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
                 ]
                 response = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
                 outputs.append(response)
+                
+        elif hf_token and model_path and "/" in model_path:
+            print(f"Querying Hugging Face Inference API for model: {model_path}")
+            for idx, item in enumerate(items):
+                print(f"Generating [{idx+1}/{len(items)}]...")
+                prompt = f"Instruction: {item.get('instruction', '')}\nInput: {item.get('input', '')}"
+                try:
+                    r = req.post(
+                        f"https://api-inference.huggingface.co/models/{model_path}",
+                        headers={"Authorization": f"Bearer {hf_token}"},
+                        json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.1}},
+                        timeout=120,
+                    )
+                    if r.status_code == 200:
+                        res = r.json()
+                        if isinstance(res, list) and res:
+                            outputs.append(res[0].get("generated_text", "").replace(prompt, "").strip())
+                            continue
+                except Exception as e:
+                    print(f"HF API Error for {model_path}: {e}")
+                outputs.append("API 오류 또는 타임아웃")
+                
         else:
             # Mock generator based on the expected behavior for testing/smoke runs
             print(f"Using mock generator for path: {model_path}")
             for item in items:
                 # Mock base vs FT outputs to show improvements in the dashboard
                 if model_path is not None and "base" in model_path.lower():
-                    # Base model output: vague, general, doesn't cite regulations, has hallucination
                     if item.get("type") == "recommend_with_reason":
                         outputs.append("일반적으로 무거운 것은 아래에 적재하는 것이 좋습니다. 선적 제약을 확인해 주십시오.")
                     elif item.get("type") in ["regulation_qa", "safety_regulation_qa"]:
@@ -108,7 +132,6 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
                     else:
                         outputs.append("입력된 내용에 일부 문제가 있을 수 있으나, 상세 위반 조항은 터미널 운영자에게 문의하십시오.")
                 else:
-                    # FT model output: copies output from the golden set (perfect)
                     outputs.append(item.get("output", ""))
                     
         return outputs
@@ -213,16 +236,24 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     print(f"FT Average Term Rate: {statistics.mean(ft_terms):.4f}")
 
 if __name__ == "__main__":
+    # Resolve base directory from environment or script location
+    base_dir = os.environ.get("SNCT_BASE_DIR", str(Path(__file__).resolve().parents[3]))
+    if not os.path.isdir(base_dir):
+        # Fallback to current workspace directory
+        base_dir = os.getcwd()
+        
     parser = argparse.ArgumentParser()
-    parser.add_argument("--golden-path", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated\eval_golden.jsonl")
+    parser.add_argument("--golden-path", type=str, default=os.path.join(base_dir, "data", "simulated", "eval_golden.jsonl"))
     parser.add_argument("--base-model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct")
-    parser.add_argument("--ft-model", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged")
-    parser.add_argument("--output-csv", type=str, default=r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\data\simulated\eval_report.csv")
+    parser.add_argument("--ft-model", type=str, default=os.path.join(base_dir, "outputs", "portslm-merged"))
+    parser.add_argument("--output-csv", type=str, default=os.path.join(base_dir, "data", "simulated", "eval_report.csv"))
     args = parser.parse_args()
     
+    # Enable Path compatibility
+    
     run_evaluation(
-        golden_path=args.golden_path,
-        base_model_path=args.base_model,
-        ft_model_path=args.ft_model,
-        output_csv=args.output_csv
+        golden_path=Path(args.golden_path),
+        base_model_path=Path(args.ft_model) if os.path.exists(args.ft_model) else args.ft_model,  # support HF ID if local doesn't exist
+        ft_model_path=Path(args.ft_model) if os.path.exists(args.ft_model) else args.ft_model,
+        output_csv=Path(args.output_csv)
     )
