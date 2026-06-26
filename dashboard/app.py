@@ -198,8 +198,9 @@ def draw_bay_plan_fig(res):
     import numpy as np
     import re
     
-    # Matplotlib settings for Korean font and styling
-    plt.rcParams['font.family'] = 'Malgun Gothic'
+    # Matplotlib settings for cross-platform sans-serif font rendering
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'Malgun Gothic', 'NanumGothic', 'sans-serif']
     plt.rcParams['axes.unicode_minus'] = False
     
     assignments = res.get("assignments", [])
@@ -289,15 +290,15 @@ def draw_bay_plan_fig(res):
                 lbl = f"{POD_DISPLAY_NAMES.get(pod_id, 'POD')}({pod_id})"
                 ax.text(r, t, lbl, ha="center", va="center", color="white" if pod_id in [1, 3, 6] else "#1e293b", fontweight="bold", fontsize=10)
                 
-    ax.set_title("【POD 분포 (Discharge Port Plan)】", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title("POD Allocation (Discharge Port Plan)", fontsize=12, fontweight="bold", pad=12)
     ax.set_xticks(range(n_rows))
     ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
     ax.set_yticks(range(n_tiers))
     ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
     ax.set_xlim(-0.5, n_rows - 0.5)
     ax.set_ylim(-0.5, n_tiers - 0.5)
-    ax.set_xlabel("Row (열)", fontsize=11, labelpad=8)
-    ax.set_ylabel("Tier (단)", fontsize=11, labelpad=8)
+    ax.set_xlabel("Row", fontsize=11, labelpad=8)
+    ax.set_ylabel("Tier", fontsize=11, labelpad=8)
     ax.grid(False)
     
     legend_patches = [mpatches.Patch(color=POD_COLORS[i], label=POD_NAMES[i]) for i in range(1, 7)]
@@ -315,18 +316,18 @@ def draw_bay_plan_fig(res):
             if wt > 0:
                 ax.text(r, t, f"{wt:.1f}t", ha="center", va="center", color="black" if wt < 12.0 else "white", fontweight="bold", fontsize=10)
                 
-    ax.set_title("【무게 분포 (Weight Distribution)】", fontsize=12, fontweight="bold", pad=12)
+    ax.set_title("Weight Distribution (Metric Tons)", fontsize=12, fontweight="bold", pad=12)
     ax.set_xticks(range(n_rows))
     ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
     ax.set_yticks(range(n_tiers))
     ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
     ax.set_xlim(-0.5, n_rows - 0.5)
     ax.set_ylim(-0.5, n_tiers - 0.5)
-    ax.set_xlabel("Row (열)", fontsize=11, labelpad=8)
+    ax.set_xlabel("Row", fontsize=11, labelpad=8)
     ax.grid(False)
     
     cbar = fig.colorbar(im, ax=ax, orientation="vertical", shrink=0.7, pad=0.05)
-    cbar.set_label("중량 (Metric Tons)", fontsize=9, labelpad=8)
+    cbar.set_label("Weight (Metric Tons)", fontsize=9, labelpad=8)
     
     # Determine curriculum level label
     if n_rows == 4:
@@ -340,7 +341,7 @@ def draw_bay_plan_fig(res):
     else:
         level_num = f"{n_rows}R"
         
-    fig.suptitle(f"PPO 강화학습 최적 배정 분포 ({level_num} - {n_rows}R × {n_tiers}T)", fontsize=15, fontweight="bold", color="#1E3A8A", y=0.98)
+    fig.suptitle(f"PPO Stowage Optimization Plan ({level_num} - {n_rows}R × {n_tiers}T)", fontsize=15, fontweight="bold", color="#1E3A8A", y=0.98)
     
     plt.tight_layout()
     plt.subplots_adjust(top=0.88, bottom=0.22)
