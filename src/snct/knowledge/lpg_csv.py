@@ -81,23 +81,47 @@ class LPGGraph:
     def violations_in_round(self, policy: str, round_id: int) -> list[dict]:
         """(policy, round_id)에서 위반한 슬롯 → 컨테이너·제약 조인.
         → [{container_id, slot_id, row, tier, code, rule, source}]."""
-        slots = self._t("Slot.csv")
-        sel = slots[(slots["policy"] == str(policy)) & (slots["round_id"] == int(round_id))]
-        slot_ids = set(sel["slot_id"])
+        slots = self._t("Slot.csv").copy()
+        
+        # 타입 불일치 및 문자열 공백(BOM 등) 완벽 차단용 가드
+        if "policy" in slots.columns:
+            slots["policy"] = slots["policy"].astype(str).str.strip()
+        if "round_id" in slots.columns:
+            slots["round_id"] = pd.to_numeric(slots["round_id"], errors="coerce")
+            
+        target_policy = str(policy).strip()
+        target_round = float(round_id)
+        
+        sel = slots[(slots["policy"] == target_policy) & (slots["round_id"] == target_round)]
+        if sel.empty:
+            return []
+            
+        slot_ids = set(sel["slot_id"].astype(str).str.strip())
         if not slot_ids:
             return []
-        viol = self._t("REL_VIOLATES.csv")
+            
+        viol = self._t("REL_VIOLATES.csv").copy()
+        viol["START"] = viol["START"].astype(str).str.strip()
         viol = viol[viol["START"].isin(slot_ids)]
         if viol.empty:
             return []
-        assigned = self._t("REL_ASSIGNED_TO.csv")
-        cdf = self._t("Constraint.csv")
-        slot_loc = {r["slot_id"]: (r.get("row"), r.get("tier")) for _, r in sel.iterrows()}
+            
+        assigned = self._t("REL_ASSIGNED_TO.csv").copy()
+        assigned["START"] = assigned["START"].astype(str).str.strip()
+        assigned["END"] = assigned["END"].astype(str).str.strip()
+        
+        cdf = self._t("Constraint.csv").copy()
+        cdf["cons_id"] = cdf["cons_id"].astype(str).str.strip()
+        
+        slot_loc = {str(r["slot_id"]).strip(): (r.get("row"), r.get("tier")) for _, r in sel.iterrows()}
         out = []
         for _, vr in viol.iterrows():
-            slot_id, cons_id = vr["START"], vr["END"]
+            slot_id = str(vr["START"]).strip()
+            cons_id = str(vr["END"]).strip()
+            
             cont = assigned[assigned["END"] == slot_id]["START"]
             container_id = cont.iloc[0] if not cont.empty else None
+            
             crow = cdf[cdf["cons_id"] == cons_id]
             code = crow.iloc[0]["code"] if not crow.empty else cons_id
             rule = crow.iloc[0]["rule"] if not crow.empty else ""
