@@ -49,6 +49,25 @@ class Violation:
     severity: str = "error"                           # error | warning
 
 @dataclass
+class RLDecisionRef:
+    """설명 대상 RL 의사결정 식별자. (계약 — specs/07 xAI-RL)"""
+    policy: str
+    round_id: int
+
+@dataclass
+class RLDecision:
+    """(policy, round_id) 단위 RL 의사결정 근거 융합체 — explain()의 입력. (계약 — specs/07)
+    모든 필드는 RL 결과 자료의 사실에서 적재되며, 새 수치를 생성하지 않는다."""
+    policy: str
+    round_id: int
+    reward_total: float
+    top_contributions: list = field(default_factory=list)   # [(reward_term, value)] 절댓값 내림차순
+    kpi: dict = field(default_factory=dict)                  # reward·osr·wbi·psr·cwvr ...
+    violations: list = field(default_factory=list)           # violation_log 매칭 행(dict)
+    rationale: list = field(default_factory=list)            # xai_grounding 자연어 근거
+    doc_refs: list = field(default_factory=list)             # SOLAS_VI·ISPS·SOP ...
+
+@dataclass
 class Recommendation:
     """운영자/대시보드로 가는 최종 산출. (계약)"""
     plan: CandidatePlan

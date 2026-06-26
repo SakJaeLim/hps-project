@@ -117,18 +117,21 @@ def to_sql(question: str, schema: dict | None = None) -> str:
     return _SQL_TEMPLATES["컨테이너_목록"]
 
 
-def run_readonly(sql: str) -> list[dict]:
-    """Execute SELECT-only SQL with validation and LIMIT."""
+def _guard_and_limit(sql: str, limit: int = 100) -> str:
+    """읽기전용 가드레일: SELECT만 허용 · DDL/DML 차단 · LIMIT 강제. (spec 07)"""
     sql_upper = sql.strip().upper()
     if not sql_upper.startswith("SELECT"):
         raise ValueError("읽기전용: SELECT 쿼리만 허용됩니다.")
     if any(kw in sql_upper for kw in ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE"]):
         raise ValueError("위험 쿼리 차단: DDL/DML 명령은 허용되지 않습니다.")
-
-    # Add LIMIT if not present
     if "LIMIT" not in sql_upper:
-        sql = sql.rstrip(";") + " LIMIT 100"
+        sql = sql.rstrip(";") + f" LIMIT {limit}"
+    return sql
 
+
+def run_readonly(sql: str) -> list[dict]:
+    """Execute SELECT-only SQL with validation and LIMIT."""
+    sql = _guard_and_limit(sql)
     result = _con.execute(sql).fetchdf()
     return result.to_dict(orient="records")
 
@@ -151,3 +154,79 @@ def ask(question: str) -> dict:
         }
     except Exception as e:
         return {"answer": f"SQL 실행 오류: {e}", "sources": []}
+
+
+# ────────────────────────────────────────────────────────────────────
+# T20 · RL 결과 RDB NL2SQL — sqi agent 패턴 이식 (CSV → DuckDB, 읽기전용)
+# ────────────────────────────────────────────────────────────────────
+class RLAnalyst:
+    """강화학습 결과 RDB(kpi·reward_decomp·violation_log·slot_assignment)를
+    DuckDB에 적재하고 자연어로 질의한다. 가드레일은 _guard_and_limit 공유. (spec 07)"""
+
+    def __init__(self, store=None):
+        import duckdb
+        from snct.data.sources.rl_results import RLResultStore
+
+        self.store = store or RLResultStore()
+        self.con = duckdb.connect(":memory:")
+        loaders = {
+            "kpi": self.store.load_kpi,
+            "reward_decomp": self.store.load_reward_decomp,
+            "violation_log": self.store.load_violation_log,
+            "slot_assignment": self.store.load_slot_assignment,
+        }
+        self._tables = []
+        for name, fn in loaders.items():
+            df = fn().copy()
+            if "round_id" in df.columns:
+                df["round_id"] = df["round_id"].astype("int64")
+            self.con.register(f"_{name}_df", df)
+            self.con.execute(f"CREATE TABLE {name} AS SELECT * FROM _{name}_df")
+            self._tables.append(name)
+
+    def tables(self) -> list[str]:
+        return list(self._tables)
+
+    def query(self, sql: str) -> list[dict]:
+        """읽기전용 가드레일 적용 후 실행."""
+        sql = _guard_and_limit(sql)
+        return self.con.execute(sql).fetchdf().to_dict(orient="records")
+
+    @staticmethod
+    def _policy_filter(question: str) -> str:
+        for p in ("BL", "SF", "EF"):
+            if p in question.upper():
+                return f" WHERE policy = '{p}'"
+        return ""
+
+    def to_sql(self, question: str) -> str:
+        """RL 운영 질의 → SQL 템플릿(읽기전용). 핵심 질의는 템플릿 우선(spec 07)."""
+        q = question.lower()
+        pf = self._policy_filter(question)
+
+        if "위반" in q and any(k in question for k in ("많", "최대", "가장", "top")):
+            return ("SELECT policy, round_id, n_col_wt_viol, n_overstow "
+                    "FROM violation_log WHERE scope = 'SUMMARY' "
+                    "ORDER BY n_col_wt_viol DESC, n_overstow DESC")
+        if any(k in q for k in ("보상 기여", "기여", "reward_decomp", "분해")):
+            return f"SELECT * FROM reward_decomp{pf} ORDER BY round_id"
+        if any(k in q for k in ("osr", "재취급", "wbi", "무게균형", "psr", "지표", "kpi", "보상", "reward")):
+            return f"SELECT policy, round_id, reward, osr, wbi, psr, cwvr FROM kpi{pf} ORDER BY round_id"
+        if any(k in q for k in ("배정", "슬롯", "적재 위치", "slot")):
+            return f"SELECT vessel, policy, round_id, row, tier, container_id, pod_name, weight_mt FROM slot_assignment{pf} ORDER BY round_id, row, tier"
+        return f"SELECT policy, round_id, reward, osr, wbi, psr, cwvr FROM kpi{pf} ORDER BY round_id"
+
+    def ask(self, question: str) -> dict:
+        """→ {answer, sources:[{type:'sql', ref:sql, snippet:rows}]}."""
+        sql = self.to_sql(question)
+        try:
+            rows = self.query(sql)
+            if rows:
+                header = ", ".join(str(k) for k in rows[0].keys())
+                body = "\n".join(", ".join(str(v) for v in r.values()) for r in rows[:10])
+                answer = f"[RL RDB 결과 — {len(rows)}건]\n{header}\n{body}"
+            else:
+                answer = "조회 결과가 없습니다."
+            return {"answer": answer, "sources": [{"type": "sql", "ref": sql, "snippet": rows[:5]}]}
+        except Exception as e:
+            return {"answer": f"SQL 실행 오류: {e}", "sources": []}
