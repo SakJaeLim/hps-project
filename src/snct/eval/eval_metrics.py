@@ -138,16 +138,17 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
                 
-            # Default Chat template fallback for Qwen architectures if not set
+            # Default Chat template fallback: Borrow from base Instruct model if missing
             if not getattr(tokenizer, "chat_template", None):
-                tokenizer.chat_template = (
-                    "{%- for message in messages -%}"
-                    "{{- '<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n' -}}"
-                    "{%- endfor -%}"
-                    "{%- if add_generation_prompt -%}"
-                    "{{- '<|im_start|>assistant\\n' -}}"
-                    "{%- endif -%}"
-                )
+                print("Warning: chat_template is missing. Attempting to borrow from Qwen base model...")
+                try:
+                    base_path = resolve_local_model_path("Qwen/Qwen2.5-VL-3B-Instruct") or "Qwen/Qwen2.5-VL-3B-Instruct"
+                    base_tok = AutoTokenizer.from_pretrained(base_path, trust_remote_code=True)
+                    if getattr(base_tok, "chat_template", None):
+                        tokenizer.chat_template = base_tok.chat_template
+                        print("Successfully borrowed chat_template from base model.")
+                except Exception as ex:
+                    print(f"Failed to borrow base chat_template: {ex}")
             model = model_class.from_pretrained(
                 model_path,
                 torch_dtype=torch.float16,
