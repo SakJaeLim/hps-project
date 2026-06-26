@@ -154,17 +154,38 @@ class LPGGraph:
         cid = self._extract_container_id(question)
         sources, lines = [], []
 
+        # 1. 특정 컨테이너 규정 위반 조회
         if cid and any(k in question for k in ("위반", "규정", "제약", "violat")):
             for v in self.violations_of(cid):
                 lines.append(f"{cid} → [{v['code']}/{v['source']}] {v['rule']}")
                 sources.append({"type": "graph", "ref": v["cons_id"],
                                 "snippet": f"{cid} VIOLATES {v['code']}: {v['rule']}"})
+        
+        # 2. 특정 컨테이너 상단 적층/재취급 상태 조회
         elif cid and any(k in question for k in ("위", "쌓", "stack", "재취급", "overstow")):
             for s in self.stacked_on(cid):
                 tag = " (재취급/overstow)" if s["is_overstow"] else ""
                 lines.append(f"{cid} 위에 적재: {s['container_id']}{tag}")
                 sources.append({"type": "graph", "ref": s["container_id"],
                                 "snippet": f"{s['container_id']} STACKED_ON {cid}{tag}"})
+
+        # 3. 특정 정책 & 라운드의 전체 위반 목록 조회 (예: "BL 정책 2라운드 위반 사항")
+        else:
+            policy_match = re.search(r"\b(BL|SF|EF)\b", question, re.IGNORECASE)
+            round_match = re.search(r"(\d+)\s*(?:라운드|round|R\b|회차)", question, re.IGNORECASE)
+            if policy_match and round_match:
+                policy = policy_match.group(1).upper()
+                round_id = int(round_match.group(1))
+                rows = self.violations_in_round(policy, round_id)
+                if rows:
+                    lines.append(f"📦 [정책 {policy} / 라운드 {round_id} 위반 목록 - {len(rows)}건]")
+                    for r in rows[:10]:  # 최대 10건 출력 제한
+                        lines.append(f"  ❌ {r['container_id']} (위치: ROW {r['row']}·TIER {r['tier']}) → {r['code']}({r['source']}): {r['rule']}")
+                        sources.append({
+                            "type": "graph",
+                            "ref": r["slot_id"],
+                            "snippet": f"{r['container_id']} violates {r['code']}: {r['rule']}"
+                        })
 
         if not sources:
             return {"answer": "관련 그래프 근거를 찾을 수 없습니다.", "sources": []}
