@@ -779,7 +779,50 @@ elif page == "컨테이너 위치 조회":
         res = where_is(q)
         if res["sources"]:
             st.success(res["answer"])
-            st.json(res["sources"][0]["snippet"])
+            
+            # JSON 원시 데이터 대신 프리미엄 상세 카드 렌더링
+            info = res["sources"][0]["snippet"]
+            if isinstance(info, dict):
+                is_top = info.get("is_top", False)
+                retrieval_status = "🟢 즉시 반출 가능 (최상단 적재)" if is_top else "🟡 재취급(Rehandling) 필요 (상단 컨테이너 간섭)"
+                
+                st.markdown(f"""
+                <div class="card" style="border-left: 5px solid #1F3864; padding: 20px;">
+                    <h4 style="margin-top: 0px; color: #1F3864 !important; font-weight: 700;">📦 컨테이너 물리 상세 정보 (LPG 그래프 조회)</h4>
+                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid #edf2f7;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14.5px; text-align: left;">
+                        <tr style="border-bottom: 1px solid #edf2f7;">
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 35%;">컨테이너 식별자</td>
+                            <td style="padding: 10px 8px; color: #2d3748;">{info.get('container_id')}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #edf2f7;">
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">선박명 / 항차</td>
+                            <td style="padding: 10px 8px; color: #2d3748;">{info.get('vessel')} ({info.get('voyage')})</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #edf2f7;">
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">배치 위치 (Bay/Row/Tier)</td>
+                            <td style="padding: 10px 8px; color: #2d3748;">{info.get('bay')} - ROW {info.get('row')} - TIER {info.get('tier')}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #edf2f7;">
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">목적지 (POD) / 중량</td>
+                            <td style="padding: 10px 8px; color: #2d3748;">{info.get('pod')} / {info.get('weight_mt', 0.0):.2f} Tons</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #edf2f7;">
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">적층 상태</td>
+                            <td style="padding: 10px 8px; color: #2d3748;">
+                                {'최하단 적재 (Bottom)' if info.get('is_bottom') else '중간 적재'} 
+                                {'· 최상단 적재 (Top)' if info.get('is_top') else ''}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">현 시점 반출 여부</td>
+                            <td style="padding: 10px 8px; font-weight: bold; color: {'#38a169' if is_top else '#dd6b20'};">{retrieval_status}</td>
+                        </tr>
+                    </table>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info(str(info))
         else:
             st.warning(res["answer"])
 
