@@ -786,20 +786,36 @@ elif page == "컨테이너 위치 조회":
                 is_top = info.get("is_top", False)
                 retrieval_status = "🟢 즉시 반출 가능 (최상단 적재)" if is_top else "🟡 재취급(Rehandling) 필요 (상단 컨테이너 간섭)"
                 
+                # Define premium status badges
+                if is_top:
+                    badge_html = (
+                        '<span style="background-color: #E6F4EA; color: #137333; padding: 4px 10px; '
+                        'border-radius: 12px; font-size: 13px; font-weight: 700; border: 1px solid #CEEAD6;">'
+                        '🟢 즉시 반출 가능 (최상단 적재)'
+                        '</span>'
+                    )
+                else:
+                    badge_html = (
+                        '<span style="background-color: #FEF3C7; color: #B35C00; padding: 4px 10px; '
+                        'border-radius: 12px; font-size: 13px; font-weight: 700; border: 1px solid #FDE68A;">'
+                        '🟡 재취급(Rehandling) 필요 (상단 컨테이너 간섭)'
+                        '</span>'
+                    )
+
                 html_card = (
                     f'<div class="card" style="border-left: 5px solid #1F3864; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">'
                     f'<h4 style="margin-top: 0px; color: #1F3864 !important; font-weight: 700;">📦 컨테이너 물리 상세 정보 (LPG 그래프 조회)</h4>'
                     f'<hr style="margin: 10px 0; border: 0; border-top: 1px solid #edf2f7;">'
                     f'<table style="width: 100%; border-collapse: collapse; font-size: 14.5px; text-align: left;">'
-                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 35%;">컨테이너 식별자</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("container_id")}</td></tr>'
-                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">선박명 / 항차</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("vessel")} ({info.get("voyage")})</td></tr>'
-                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">배치 위치 (Bay/Row/Tier)</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("bay")} - ROW {info.get("row")} - TIER {info.get("tier")}</td></tr>'
-                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">목적지 (POD) / 중량</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("pod")} / {info.get("weight_mt", 0.0):.2f} Tons</td></tr>'
-                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">적층 상태</td><td style="padding: 10px 8px; color: #2d3748;">'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 35%;">🏷️ 컨테이너 식별자</td><td style="padding: 10px 8px; color: #2d3748; font-weight: 600;">{info.get("container_id")}</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">🚢 선박명 / 항차</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("vessel")} ({info.get("voyage")})</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">📍 배치 위치 (Bay/Row/Tier)</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("bay")} - ROW {info.get("row")} - TIER {info.get("tier")}</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="border-bottom: 1px solid #edf2f7; padding: 10px 8px; font-weight: 600; color: #4a5568;">⚖️ 목적지 (POD) / 중량</td><td style="padding: 10px 8px; color: #2d3748;">{info.get("pod")} / {info.get("weight_mt", 0.0):.2f} Tons</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">🥞 적층 상태</td><td style="padding: 10px 8px; color: #2d3748;">'
                     f'{"최하단 적재 (Bottom)" if info.get("is_bottom") else "중간 적재"}'
                     f'{" · 최상단 적재 (Top)" if info.get("is_top") else ""}'
                     f'</td></tr>'
-                    f'<tr><td style="padding: 10px 8px; font-weight: 600; color: #4a5568;">현 시점 반출 여부</td><td style="padding: 10px 8px; font-weight: bold; color: {"#38a169" if is_top else "#dd6b20"};">{retrieval_status}</td></tr>'
+                    f'<tr><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; vertical-align: middle;">🚚 현 시점 반출 여부</td><td style="padding: 10px 8px; vertical-align: middle;">{badge_html}</td></tr>'
                     f'</table>'
                     f'</div>'
                 )
