@@ -28,7 +28,16 @@ class SimulatedProvider(DataProvider):
             sheet_name = "R4_Lv4"
             
         base_dir = os.environ.get("SNCT_BASE_DIR", r"c:\Users\lione\Desktop\aSSIST\19_Project\12_hps-project-main")
-        xlsx_path = os.path.join(base_dir, "data", "RL", "강화학습 결과 자료", "single_bay_6pod_ppo_v13_3way_BayPlan_Distributions_seed42.xlsx")
+        
+        # NFC/NFD 한글 자소분리 경로 대응
+        folder_nfc = os.path.join(base_dir, "data", "RL", "강화학습 결과 자료")
+        folder_nfd = os.path.join(base_dir, "data", "RL", "강화학습 결과 자료")
+        
+        target_folder = folder_nfc
+        if not os.path.exists(target_folder) and os.path.exists(folder_nfd):
+            target_folder = folder_nfd
+            
+        xlsx_path = os.path.join(target_folder, "single_bay_6pod_ppo_v13_3way_BayPlan_Distributions_seed42.xlsx")
         
         if os.path.exists(xlsx_path):
             try:

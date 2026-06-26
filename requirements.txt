@@ -27,3 +27,4 @@ stable-baselines3
 pytest
 python-dotenv
 rouge
+openpyxl
