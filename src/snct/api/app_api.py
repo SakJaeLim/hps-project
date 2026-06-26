@@ -308,11 +308,18 @@ def get_metrics() -> dict:
                     ft_terms.append(float(row["ft_term_rate"]))
                     rows.append(row)
 
-            # Calculate dynamic hallucination rate: portion of outputs with ROUGE-L < 0.3
-            base_low = sum(1 for r in base_rouge if r < 0.3)
-            ft_low = sum(1 for r in ft_rouge if r < 0.3)
-            base_halluc_rate = f"{int(base_low / len(base_rouge) * 100)}%" if base_rouge else "18%"
-            ft_halluc_rate = f"{int(ft_low / len(ft_rouge) * 100)}%" if ft_rouge else "7%"
+            # Read hallucination flags directly from CSV (computed by detect_hallucination)
+            base_halluc_count = 0
+            ft_halluc_count = 0
+            for row in rows:
+                try:
+                    base_halluc_count += int(row.get("base_hallucinated", 0))
+                    ft_halluc_count += int(row.get("ft_hallucinated", 0))
+                except ValueError:
+                    pass
+            total = len(rows)
+            base_halluc_rate = f"{int(base_halluc_count / total * 100)}%" if total else "N/A"
+            ft_halluc_rate = f"{int(ft_halluc_count / total * 100)}%" if total else "N/A"
 
             # Extract top 3 improved samples
             samples = []

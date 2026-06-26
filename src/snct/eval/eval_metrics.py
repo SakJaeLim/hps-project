@@ -106,10 +106,20 @@ JSON:"""
         print(f"LLM Judge error: {e}")
     return None
 
-def detect_hallucination(reference, response, rouge_score):
-    if rouge_score < 0.2:
+def detect_hallucination(reference, response, rouge_score, item_type=""):
+    # Threshold: if ROUGE-L is below 0.5, output is substantially diverged from reference
+    if rouge_score < 0.5:
         return 1
     import re
+    # For slot recommendation items: check if the first recommended slot matches
+    if item_type in ("recommend_with_reason", ""):
+        # Extract the first BAY-ROW-TIER slot mentioned as recommendation
+        ref_match = re.search(r'추천 슬롯:\s*(BAY\d+-ROW\d+-TIER\d+)', reference)
+        resp_match = re.search(r'추천 (?:적재 )?슬롯:\s*(BAY\d+-ROW\d+-TIER\d+)', response)
+        if ref_match and resp_match:
+            if ref_match.group(1).strip() != resp_match.group(1).strip():
+                return 1
+    # For violation/safety items: check for key numeric or directional info
     ref_bays = set(re.findall(r'BAY\d+', reference.upper()))
     resp_bays = set(re.findall(r'BAY\d+', response.upper()))
     if ref_bays and resp_bays:
@@ -323,8 +333,8 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         ft_terms.append(ft_t)
         
         # Hallucination check
-        base_halluc = detect_hallucination(ref, base_out, base_r)
-        ft_halluc = detect_hallucination(ref, ft_out, ft_r)
+        base_halluc = detect_hallucination(ref, base_out, base_r, item.get("type", ""))
+        ft_halluc = detect_hallucination(ref, ft_out, ft_r, item.get("type", ""))
         
         # LLM-as-judge Score assignment (use LLM judge if base_scores / ft_scores exist)
         b_score = base_scores[i] if (base_scores and i < len(base_scores)) else None
