@@ -137,6 +137,17 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
             tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
             if tokenizer.pad_token is None:
                 tokenizer.pad_token = tokenizer.eos_token
+                
+            # Default Chat template fallback for Qwen architectures if not set
+            if not getattr(tokenizer, "chat_template", None):
+                tokenizer.chat_template = (
+                    "{%- for message in messages -%}"
+                    "{{- '<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>\\n' -}}"
+                    "{%- endfor -%}"
+                    "{%- if add_generation_prompt -%}"
+                    "{{- '<|im_start|>assistant\\n' -}}"
+                    "{%- endif -%}"
+                )
             model = model_class.from_pretrained(
                 model_path,
                 torch_dtype=torch.float16,
