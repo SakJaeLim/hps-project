@@ -222,6 +222,8 @@ def plan_endpoint(req: PlanRequest):
             "latency_ms": latency,
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -243,6 +245,8 @@ def explain_endpoint(req: ExplainRequest) -> dict:
             "latency_ms": int((time.time() - start_time) * 1000),
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -254,6 +258,8 @@ def locate_endpoint(req: LocateRequest) -> dict:
         text = req.container_id or req.question or ""
         return where_is(text)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -265,6 +271,8 @@ def knowledge_endpoint(q: str = "DG 위험물 적재 규칙"):
         result = answer(q)
         return result
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
