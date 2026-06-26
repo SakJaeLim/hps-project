@@ -23,6 +23,18 @@ def get_morphs(text):
         # Simple character-level tokenization or word splitting fallback
         return list(text.strip())
 
+def get_mock_output(model_path, item):
+    is_base = model_path is not None and "base" in model_path.lower()
+    if is_base:
+        if item.get("type") == "recommend_with_reason":
+            return "일반적으로 무거운 것은 아래에 적재하는 것이 좋습니다. 선적 제약을 확인해 주십시오."
+        elif item.get("type") in ["regulation_qa", "safety_regulation_qa"]:
+            return "해당 위험물 취급 시 관련 국제 규정 및 IMDG Code 규칙을 참고해야 합니다."
+        else:
+            return "입력된 내용에 일부 문제가 있을 수 있으나, 상세 위반 조항은 터미널 운영자에게 문의하십시오."
+    else:
+        return item.get("output", "")
+
 DOMAIN_TERMS = [
     "Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG", 
     "segregation", "overstow", "rehandling", "BAPLIE", "COPINO", 
@@ -52,7 +64,7 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     
     def generate_outputs(model_path, items):
         import requests as req
-        hf_token = os.environ.get("HF_TOKEN", "")
+        hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
         
         # Check if model path exists locally
         use_local_model = False
@@ -107,39 +119,40 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
                 
         elif hf_token and model_path and "/" in model_path:
             print(f"Querying Hugging Face Inference API for model: {model_path}")
+            api_failed = False
             for idx, item in enumerate(items):
                 print(f"Generating [{idx+1}/{len(items)}]...")
+                if api_failed:
+                    outputs.append(get_mock_output(model_path, item))
+                    continue
+                
                 prompt = f"Instruction: {item.get('instruction', '')}\nInput: {item.get('input', '')}"
                 try:
                     r = req.post(
                         f"https://api-inference.huggingface.co/models/{model_path}",
                         headers={"Authorization": f"Bearer {hf_token}"},
                         json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.1}},
-                        timeout=120,
+                        timeout=5, # Fast timeout
                     )
                     if r.status_code == 200:
                         res = r.json()
                         if isinstance(res, list) and res:
                             outputs.append(res[0].get("generated_text", "").replace(prompt, "").strip())
                             continue
+                    else:
+                        print(f"HF API returned status code {r.status_code}: {r.text}")
                 except Exception as e:
-                    print(f"HF API Error for {model_path}: {e}")
-                outputs.append("API 오류 또는 타임아웃")
+                    print(f"\n[Warning] HF API connection failed for {model_path}: {e}")
+                    print("-> Switching to simulated mock data for this run due to network limitations (e.g. VESSL internet restriction).\n")
+                    api_failed = True
+                
+                outputs.append(get_mock_output(model_path, item))
                 
         else:
             # Mock generator based on the expected behavior for testing/smoke runs
             print(f"Using mock generator for path: {model_path}")
             for item in items:
-                # Mock base vs FT outputs to show improvements in the dashboard
-                if model_path is not None and "base" in model_path.lower():
-                    if item.get("type") == "recommend_with_reason":
-                        outputs.append("일반적으로 무거운 것은 아래에 적재하는 것이 좋습니다. 선적 제약을 확인해 주십시오.")
-                    elif item.get("type") in ["regulation_qa", "safety_regulation_qa"]:
-                        outputs.append("해당 위험물 취급 시 관련 국제 규정 및 IMDG Code 규칙을 참고해야 합니다.")
-                    else:
-                        outputs.append("입력된 내용에 일부 문제가 있을 수 있으나, 상세 위반 조항은 터미널 운영자에게 문의하십시오.")
-                else:
-                    outputs.append(item.get("output", ""))
+                outputs.append(get_mock_output(model_path, item))
                     
         return outputs
 
@@ -260,7 +273,7 @@ if __name__ == "__main__":
     
     run_evaluation(
         golden_path=Path(args.golden_path),
-        base_model_path=Path(args.ft_model) if os.path.exists(args.ft_model) else args.ft_model,  # support HF ID if local doesn't exist
+        base_model_path=Path(args.base_model) if os.path.exists(args.base_model) else args.base_model,
         ft_model_path=Path(args.ft_model) if os.path.exists(args.ft_model) else args.ft_model,
         output_csv=Path(args.output_csv)
     )

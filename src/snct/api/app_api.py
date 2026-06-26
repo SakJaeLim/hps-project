@@ -77,7 +77,7 @@ def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
                 return data.get("data", [None])[0]
 
         # Fallback: HF Inference API (serverless)
-        hf_token = os.environ.get("HF_TOKEN", "")
+        hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
         if hf_token and "portslm" in model_name.lower():
             r = req.post(
                 f"https://api-inference.huggingface.co/models/{HF_MODEL_ID}",
