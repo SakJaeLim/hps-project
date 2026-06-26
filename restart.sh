@@ -58,13 +58,13 @@ fi
 
 # 4. 서비스 시작 (FastAPI 백엔드)
 echo -e "\n[4/5] Starting FastAPI Backend on port 8000..."
-nohup $UVICORN_CMD src.snct.api.app_api:app --host 0.0.0.0 --port 8000 > fastapi.log 2>&1 &
+nohup env PYTHONPATH=src $UVICORN_CMD src.snct.api.app_api:app --host 0.0.0.0 --port 8000 > fastapi.log 2>&1 &
 FASTAPI_PID=$!
 echo "FastAPI running with PID: $FASTAPI_PID"
 
 # 5. 서비스 시작 (Streamlit 프론트엔드)
 echo -e "\n[5/5] Starting Streamlit Dashboard on port 8501..."
-nohup $STREAMLIT_CMD run dashboard/app.py --server.port 8501 > streamlit.log 2>&1 &
+nohup env PYTHONPATH=src $STREAMLIT_CMD run dashboard/app.py --server.port 8501 > streamlit.log 2>&1 &
 STREAMLIT_PID=$!
 echo "Streamlit running with PID: $STREAMLIT_PID"
 

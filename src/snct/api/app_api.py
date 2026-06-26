@@ -1,10 +1,15 @@
 import os
+import sys
+import pathlib
 import time
 import csv
 import json
 import statistics
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+# src/ 패키지 검색 경로 등록
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
 app = FastAPI(title="PortSLM API Server", version="2.0")
 
