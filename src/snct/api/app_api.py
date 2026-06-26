@@ -61,12 +61,102 @@ class LocateRequest(BaseModel):
 history = []
 
 
+# Cache for loaded local models (avoid reloading on each request)
+_local_model_cache: dict = {}
+
+
+def _find_local_model_path(hf_model_id: str) -> str | None:
+    """Find the local HuggingFace cache snapshot directory for a model ID."""
+    # Normalize model ID to cache folder name: org/model → models--org--model
+    safe_name = "models--" + hf_model_id.replace("/", "--")
+    cache_base = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
+    model_cache_dir = os.path.join(cache_base, safe_name, "snapshots")
+    if not os.path.isdir(model_cache_dir):
+        return None
+    snapshots = sorted(os.listdir(model_cache_dir))
+    return os.path.join(model_cache_dir, snapshots[-1]) if snapshots else None
+
+
+def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens: int = 512) -> str | None:
+    """
+    Run inference using a locally cached HuggingFace model.
+    model_name: 'base' → Qwen2.5-VL-3B-Instruct, 'portslm' → PortSLM-Qwen2.5-VL-3B
+    Returns generated text, or None if local model not found.
+    """
+    global _local_model_cache
+    if "base" in model_name.lower():
+        hf_id = "Qwen/Qwen2.5-VL-3B-Instruct"
+    else:
+        hf_id = "AICPADSLIM/PortSLM-Qwen2.5-VL-3B"
+
+    model_path = _find_local_model_path(hf_id)
+    if not model_path:
+        print(f"[local inference] Local cache not found for {hf_id}")
+        return None
+
+    try:
+        import torch
+        from transformers import AutoTokenizer
+
+        cache_key = model_path
+        if cache_key not in _local_model_cache:
+            print(f"[local inference] Loading model from {model_path} (first call, may be slow)...")
+            is_vl = "vl" in model_path.lower()
+            if is_vl:
+                from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+                model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    device_map="auto",
+                    local_files_only=True,
+                )
+                processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
+                _local_model_cache[cache_key] = (model, processor, True)
+            else:
+                from transformers import AutoModelForCausalLM
+                tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+                model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    device_map="auto",
+                    local_files_only=True,
+                )
+                _local_model_cache[cache_key] = (model, tokenizer, False)
+            print(f"[local inference] Model loaded successfully.")
+
+        model, proc_or_tok, is_vl = _local_model_cache[cache_key]
+        device = next(model.parameters()).device
+
+        if is_vl:
+            messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+            text = proc_or_tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = proc_or_tok(text=text, return_tensors="pt").to(device)
+        else:
+            inputs = proc_or_tok(prompt, return_tensors="pt").to(device)
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                pad_token_id=proc_or_tok.eos_token_id if hasattr(proc_or_tok, 'eos_token_id') else None,
+            )
+
+        # Decode only the newly generated tokens
+        input_len = inputs["input_ids"].shape[1]
+        generated = proc_or_tok.decode(output_ids[0][input_len:], skip_special_tokens=True)
+        return generated.strip()
+
+    except Exception as e:
+        print(f"[local inference] Error during inference: {e}")
+        return None
+
+
 def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
-    """Call HF Inference API for real model inference."""
+    """Call HF Inference API for real model inference (requires internet)."""
     try:
         import requests as req
         if HF_SPACE_URL:
-            # Call HF Spaces Gradio API
             r = req.post(
                 f"{HF_SPACE_URL}/api/predict",
                 json={"data": [prompt]},
@@ -76,21 +166,21 @@ def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
                 data = r.json()
                 return data.get("data", [None])[0]
 
-        # Fallback: HF Inference API (serverless)
+        # HF Inference API (serverless) — only when internet is available
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
         if hf_token and "portslm" in model_name.lower():
             r = req.post(
                 f"https://api-inference.huggingface.co/models/{HF_MODEL_ID}",
                 headers={"Authorization": f"Bearer {hf_token}"},
                 json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.7}},
-                timeout=120,
+                timeout=30,  # shorter timeout so we fail fast if network is blocked
             )
             if r.status_code == 200:
                 result = r.json()
                 if isinstance(result, list) and result:
                     return result[0].get("generated_text", "")
     except Exception as e:
-        print(f"HF Inference error: {e}")
+        print(f"[remote inference] HF API unavailable: {e}")
     return None
 
 
@@ -125,19 +215,24 @@ def run_mock_inference(model_name: str, prompt: str) -> str:
 
 @app.post("/generate")
 def generate(req: GenerateRequest) -> dict:
-    """Generate an answer based on user prompt using HF inference or fallback mock."""
+    """Generate an answer using local model → HF API → mock, in priority order."""
     start_time = time.time()
+    source = "mock"
 
-    # Try real model inference first
-    ans = call_hf_inference(req.prompt, req.model)
-
-    # Fallback to mock if HF API unavailable
-    if not ans:
-        ans = run_mock_inference(req.model, req.prompt)
+    # Priority 1: local cached model (works even when internet is blocked)
+    ans = run_local_inference(req.prompt, req.model, max_new_tokens=req.max_tokens)
+    if ans:
+        source = "local_model"
+    else:
+        # Priority 2: remote HF API
+        ans = call_hf_inference(req.prompt, req.model)
+        if ans:
+            source = "hf_api"
+        else:
+            # Priority 3: mock
+            ans = run_mock_inference(req.model, req.prompt)
 
     latency = int((time.time() - start_time) * 1000)
-
-    # Extract terms
     terms_used = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG",
                                       "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"]
                   if term.lower() in ans.lower()]
@@ -154,15 +249,35 @@ def generate(req: GenerateRequest) -> dict:
         "text": ans,
         "terms": terms_used,
         "latency_ms": latency,
-        "source": "hf_inference" if HF_SPACE_URL or os.environ.get("HF_TOKEN") else "mock"
+        "source": source
     }
 
 
 @app.post("/compare")
 def compare(req: CompareRequest) -> dict:
-    """Compare answers between base and fine-tuned models."""
-    base_ans = call_hf_inference(req.prompt, "base") or run_mock_inference("base", req.prompt)
-    ft_ans = call_hf_inference(req.prompt, "portslm") or run_mock_inference("portslm", req.prompt)
+    """
+    Compare answers between base and fine-tuned models.
+    Inference priority: local cached model → HF API → mock.
+    """
+    # Base model
+    base_ans = run_local_inference(req.prompt, "base")
+    base_source = "local_model"
+    if not base_ans:
+        base_ans = call_hf_inference(req.prompt, "base")
+        base_source = "hf_api" if base_ans else "mock"
+    if not base_ans:
+        base_ans = run_mock_inference("base", req.prompt)
+
+    # Fine-tuned model
+    ft_ans = run_local_inference(req.prompt, "portslm")
+    ft_source = "local_model"
+    if not ft_ans:
+        ft_ans = call_hf_inference(req.prompt, "portslm")
+        ft_source = "hf_api" if ft_ans else "mock"
+    if not ft_ans:
+        ft_ans = run_mock_inference("portslm", req.prompt)
+
+    print(f"[compare] base_source={base_source}, ft_source={ft_source}")
 
     terms_used = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG",
                                       "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"]
@@ -179,7 +294,9 @@ def compare(req: CompareRequest) -> dict:
     return {
         "base_text": base_ans,
         "finetuned_text": ft_ans,
-        "terms": terms_used
+        "terms": terms_used,
+        "base_source": base_source,
+        "ft_source": ft_source
     }
 
 
