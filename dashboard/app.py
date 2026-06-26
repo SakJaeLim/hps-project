@@ -711,15 +711,68 @@ elif page == "RL 적재 설명 (xAI)":
         policy = c1.selectbox("정책", policies)
         round_id = c2.selectbox("라운드", rounds)
         with_lpg = c3.checkbox("LPG 위반 컨테이너 상세 포함", value=True)
+        
+        if "explanation_result" not in st.session_state:
+            st.session_state.explanation_result = None
+
         if st.button("설명 생성", type="primary"):
-            from snct.agents.graph import run_explanation
-            rec = run_explanation(policy=policy, round_id=int(round_id), with_lpg=with_lpg)
-            faith = next((c.split("=")[1] for c in rec.checks if c.startswith("faithfulness=")), None)
+            with st.spinner("RL 의사결정 설명 및 시각화 자료 로드 중..."):
+                from snct.agents.graph import run_explanation
+                rec = run_explanation(policy=policy, round_id=int(round_id), with_lpg=with_lpg)
+                st.session_state.explanation_result = {
+                    "policy": policy,
+                    "round_id": round_id,
+                    "rationale": rec.rationale,
+                    "checks": rec.checks,
+                }
+
+        if st.session_state.explanation_result:
+            result = st.session_state.explanation_result
+            faith = next((c.split("=")[1] for c in result["checks"] if c.startswith("faithfulness=")), None)
             if faith is not None:
                 (st.success if float(faith) >= 1.0 else st.warning)(
-                    f"근거 충실도(faithfulness) = {faith}  ·  {' · '.join(rec.checks)}"
+                    f"근거 충실도(faithfulness) = {faith}  ·  {' · '.join(result['checks'])}"
                 )
-            st.markdown(rec.rationale)
+            st.markdown(result["rationale"])
+
+            # 훈련 결과 차트 이미지 렌더링 (NFC/NFD 호환)
+            curr_policy = result["policy"]
+            from snct.data.sources.rl_results import default_results_dir
+            try:
+                base_dir = default_results_dir()
+                v13_dir = base_dir / "v13_3way_BL_SF_EF (1)"
+                policy_dir = v13_dir / curr_policy
+                
+                img_files = [
+                    "fig1_cumulative_reward_steps.png",
+                    "fig2_per_round_cumulative.png",
+                    "fig3_kpi_bar.png",
+                    "fig4_radar.png",
+                    f"fig5_bay_plan_PPO_{curr_policy}.png",
+                    "fig6_stepwise_reward.png"
+                ]
+                
+                existing_imgs = []
+                for img_name in img_files:
+                    img_path = policy_dir / img_name
+                    if img_path.exists():
+                        existing_imgs.append((img_path, img_name))
+                
+                if existing_imgs:
+                    st.write("---")
+                    st.markdown("### 📊 강화학습 훈련 결과 시각화")
+                    cols = st.columns(2)
+                    for idx, (path, name) in enumerate(existing_imgs):
+                        caption_name = name.split("_", 1)[1].replace(".png", "").replace("_", " ").title()
+                        with cols[idx % 2]:
+                            st.markdown(f"""
+                            <div class="card" style="padding: 10px; margin-bottom: 10px; text-align: center;">
+                                <p style="font-weight: bold; margin-bottom: 0px; color: #1F3864 !important; font-size: 14px;">{caption_name}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            st.image(str(path), use_container_width=True)
+            except Exception as e:
+                st.warning(f"시각화 이미지를 불러오는 중 오류가 발생했습니다: {e}")
 
 elif page == "컨테이너 위치 조회":
     st.subheader("컨테이너 위치 조회")
