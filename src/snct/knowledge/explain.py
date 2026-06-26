@@ -64,7 +64,9 @@ def explain_rl_decision(decision: RLDecision, lpg=None) -> list[str]:
     if lpg is not None:
         try:
             rows = lpg.violations_in_round(decision.policy, decision.round_id)
-        except Exception:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             rows = []
         if rows:
             parts.append("\n### 위반 컨테이너 상세 (LPG 그래프 근거)")

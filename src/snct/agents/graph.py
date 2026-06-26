@@ -185,7 +185,9 @@ def run_explanation(
         try:
             from snct.knowledge.lpg import get_lpg
             lpg = get_lpg()  # Neo4j 가용 시 그래프DB, 아니면 CSV 폴백
-        except Exception:
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             lpg = None
 
     rationale = explain(CandidatePlan(engine="rl"), [], evidence=[], decision=decision, lpg=lpg)
