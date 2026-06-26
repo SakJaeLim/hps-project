@@ -42,7 +42,17 @@ def _repo_root() -> Path:
 
 
 def default_results_dir() -> Path:
-    return _repo_root() / "data" / "강화학습 결과 자료"
+    # 깃 저장소 내 실제 경로는 data/RL/강화학습 결과 자료 입니다.
+    nfc_path = _repo_root() / "data" / "RL" / "강화학습 결과 자료"
+    if nfc_path.is_dir():
+        return nfc_path
+    
+    # OS별 자소분리(NFD) 폴더명 대응
+    nfd_path = _repo_root() / "data" / "RL" / "강화학습 결과 자료"
+    if nfd_path.is_dir():
+        return nfd_path
+        
+    return nfc_path
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
