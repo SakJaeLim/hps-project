@@ -733,9 +733,12 @@ elif page == "RL 적재 설명 (xAI)":
             result = st.session_state.explanation_result
             faith = next((c.split("=")[1] for c in result["checks"] if c.startswith("faithfulness=")), None)
             if faith is not None:
-                (st.success if float(faith) >= 1.0 else st.warning)(
-                    f"근거 충실도(faithfulness) = {faith}  ·  {' · '.join(result['checks'])}"
-                )
+                faith_pct = int(float(faith) * 100)
+                status_text = f"🛡️ **설명 신뢰성 검증 완료** (근거 충실도: **{faith_pct}%**)  |  **정책**: {result['policy']}  |  **라운드**: {result['round_id']}"
+                if float(faith) >= 1.0:
+                    st.success(status_text)
+                else:
+                    st.warning(status_text + " (⚠️ 일부 설명에 수치 불일치 가능성이 감지되었습니다.)")
             st.markdown(result["rationale"])
 
             # 훈련 결과 차트 이미지 렌더링 (NFC/NFD 호환)
@@ -761,7 +764,13 @@ elif page == "RL 적재 설명 (xAI)":
                     st.markdown("### 📊 최적 적재 배치도 (Optimal Stowage Plan)")
                     cols = st.columns(2)
                     for idx, (path, name) in enumerate(existing_imgs):
-                        caption_name = name.split("_", 1)[1].replace(".png", "").replace("_", " ").title()
+                        name_clean = name.replace(".png", "")
+                        if "PPO" in name_clean:
+                            policy_suffix = name_clean.split("PPO_")[-1]
+                            caption_name = f"📊 PPO 최적 적재계획도 (Policy: {policy_suffix.upper()})"
+                        else:
+                            caption_name = f"📊 {name_clean.replace('_', ' ').title()}"
+                            
                         with cols[idx % 2]:
                             st.markdown(f"""
                             <div class="card" style="padding: 10px; margin-bottom: 10px; text-align: center;">

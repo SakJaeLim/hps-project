@@ -31,8 +31,8 @@ def explain_rl_decision(decision: RLDecision, lpg=None) -> list[str]:
         parts.append("\n### 주요 기여 요인 (reward 분해 = 귀인)")
         for term, val in decision.top_contributions[:6]:
             label = REWARD_LABELS.get(term, term)
-            direction = "계획 품질을 높임" if val >= 0 else "감점 요인"
-            parts.append(f"  • {label}: {_fmt(val)} — {direction}")
+            direction = "🟢 계획 품질을 높임" if val >= 0 else "🔴 감점 요인"
+            parts.append(f"  - **{label}**: `{_fmt(val)}` — {direction}")
 
     # 2) 운영지표(kpi) 인용
     metrics = [(k, decision.kpi[k]) for k in _KPI_LABELS if k in decision.kpi and decision.kpi[k] is not None]
@@ -40,12 +40,13 @@ def explain_rl_decision(decision: RLDecision, lpg=None) -> list[str]:
         parts.append("\n### 운영지표 (사실 근거)")
         for k, v in metrics:
             label, interp = _KPI_LABELS[k]
-            parts.append(f"  • {label} = {v:.3f} — {interp}")
+            parts.append(f"  - **{label}** = `{v:.3f}` — *{interp}*")
 
     # 3) 규정 근거(doc_refs)
     if decision.doc_refs:
         parts.append("\n### 규정 근거")
-        parts.append("  📚 " + ", ".join(decision.doc_refs))
+        badge_refs = [f"`{ref}`" for ref in decision.doc_refs]
+        parts.append("  📚 " + ", ".join(badge_refs))
 
     # 4) 위반 사실(violation_log) — 라운드 집계(SUMMARY)만. 컨테이너별 상세는 4b LPG 섹션.
     summary_viol = [
@@ -57,7 +58,7 @@ def explain_rl_decision(decision: RLDecision, lpg=None) -> list[str]:
         parts.append("\n### 검증 위반(사실·집계)")
         for v in summary_viol:
             parts.append(
-                f"  ❌ overstow={v.get('n_overstow')}, col_wt_viol={v.get('n_col_wt_viol')}"
+                f"  - ❌ **overstow** = `{v.get('n_overstow')}`건, **col_wt_viol** = `{v.get('n_col_wt_viol')}`건"
             )
 
     # 4b) 위반 컨테이너 상세(LPG) — 어느 컨테이너가 어떤 규정을 위반했나
@@ -72,7 +73,7 @@ def explain_rl_decision(decision: RLDecision, lpg=None) -> list[str]:
             parts.append("\n### 위반 컨테이너 상세 (LPG 그래프 근거)")
             for r in rows:
                 cid = r.get("container_id") or r.get("slot_id")
-                parts.append(f"  ❌ {cid} → {r['code']}({r['source']}): {r['rule']}")
+                parts.append(f"  - ❌ **{cid}** → `{r['code']}`({r['source']}): *{r['rule']}*")
 
     # 5) 사전 융합 근거(rationale) — RL이 산출한 자연어 근거 그대로 인용
     if decision.rationale:
