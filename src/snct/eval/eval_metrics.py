@@ -6,6 +6,13 @@ import argparse
 from pathlib import Path
 from rouge import Rouge
 
+# Load .env file for environment variables (like HF_TOKEN)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+except Exception:
+    pass
+
 # Fallback tokenization if Mecab fails
 def get_morphs(text):
     try:
