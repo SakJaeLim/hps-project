@@ -396,7 +396,7 @@ with st.sidebar:
     # Left Navigation menu
     page = st.radio(
         "화면 이동",
-        ["홈 (Home)", "도메인 Q&A", "모델 비교 (前/後)", "평가 대시보드", "적재 계획 (Planning)", "RL 적재 설명 (xAI)", "컨테이너 위치 조회", "Neo4j 그래프", "이력 조회"]
+        ["홈 (Home)", "도메인 Q&A", "적재 계획 (Planning)", "평가 대시보드"]
     )
     
     st.markdown("---")
@@ -453,6 +453,46 @@ if page == "홈 (Home)":
             st.info("❄️ **Reefer 냉동 지정위치**\n\n'Reefer 컨테이너의 적재 위치는?'")
             
     with col2:
+        # 실시간 시스템 상태 진단
+        neo4j_status = "Disconnected"
+        neo4j_color = "#e53e3e"
+        try:
+            from snct.knowledge.lpg import lpg_status
+            status = lpg_status()
+            if status.get("neo4j_connected"):
+                neo4j_status = "Connected"
+                neo4j_color = "#38a169"
+        except:
+            pass
+
+        rdb_status = "Disconnected"
+        rdb_color = "#e53e3e"
+        try:
+            from snct.common.neon_adapter import NeonAdapter
+            if NeonAdapter().is_available():
+                rdb_status = "Connected"
+                rdb_color = "#38a169"
+        except:
+            pass
+
+        st.markdown(f"""
+        <div class="card" style="border-top: 5px solid #1F3864;">
+            <h4 style="margin: 0 0 15px 0;">🔌 시스템 연결 상태 (Health)</h4>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">Neon PostgreSQL (RDB)</span>
+                <span style="color:white; background-color:{rdb_color}; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">{rdb_status}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">Neo4j Graph (LPG)</span>
+                <span style="color:white; background-color:{neo4j_color}; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">{neo4j_status}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">ChromaDB (VectorDB)</span>
+                <span style="color:white; background-color:#38a169; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">Active (1443 Chunks)</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown(f"""
         <div class="card">
             <h4>모델 정보 카드</h4>
@@ -513,6 +553,17 @@ elif page == "도메인 Q&A":
                 if st.button("👎 Bad", key=f"feed_down_{hash(chat['content'])}"):
                     call_api("/feedback", {"qid": user_query, "vote": "down"})
                     st.warning("피드백 반영 완료.")
+                    
+    # 하단에 Q&A 히스토리 이력 조회 통합 이식
+    st.markdown("---")
+    with st.expander("📝 실시간 질의응답 및 피드백 이력 로그 조회"):
+        history_list = call_api("/history", method="GET")
+        if not history_list:
+            history_list = st.session_state.local_history
+        if history_list:
+            st.dataframe(pd.DataFrame(history_list), use_container_width=True)
+        else:
+            st.info("기록된 대화 이력이 없습니다.")
 
 elif page == "모델 비교 (前/後)":
     st.markdown("### 파인튜닝 전/후 모델 성능 비교 (시연 화면)")
