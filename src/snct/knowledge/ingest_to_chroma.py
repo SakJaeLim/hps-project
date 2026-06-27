@@ -31,10 +31,9 @@ def get_embedding_function(model_name="jhgan/ko-sroberta-multitask"):
         print("        설치 방법: pip install chromadb sentence-transformers")
         sys.exit(1)
 
-def parse_chunks_jsonl(file_path: Path) -> list[dict]:
-    """JSONL 청크 파일 파싱 및 스키마 정규화 (중복 청크 원천 스킵)"""
+def parse_chunks_jsonl(file_path: Path, seen_ids: set) -> list[dict]:
+    """JSONL 청크 파일 파싱 및 스키마 정규화 (전역 seen_ids 기반 중복 차단)"""
     chunks = []
-    seen_ids = set()
     file_name = file_path.name
     
     with open(file_path, "r", encoding="utf-8-sig") as f:
@@ -53,7 +52,7 @@ def parse_chunks_jsonl(file_path: Path) -> list[dict]:
                 hash_id = hashlib.md5(text.encode("utf-8")).hexdigest()
                 chunk_id = f"chunk_{hash_id}"
                 
-                # 배치 내 중복 ID(완전 동일 문장) 방지
+                # 전역 중복 ID(완전 동일 문장) 방지
                 if chunk_id in seen_ids:
                     continue
                 seen_ids.add(chunk_id)
@@ -82,8 +81,8 @@ def main():
     parser.add_argument("--model", type=str, default="BAAI/bge-m3", help="임베딩 모델명")
     args = parser.parse_args()
 
-    sft_dir = Path(args.sft_dir)
-    db_dir = Path(args.db_dir)
+    sft_dir = Path(args.sft-dir) if hasattr(args, 'sft-dir') else Path(args.sft_dir)
+    db_dir = Path(args.db-dir) if hasattr(args, 'db-dir') else Path(args.db_dir)
     
     if not sft_dir.is_dir():
         print(f"[ERROR] 소스 디렉토리가 존재하지 않습니다: {sft_dir.absolute()}")
@@ -118,6 +117,7 @@ def main():
     print("=" * 60)
 
     total_added = 0
+    global_seen_ids = set()
     
     # 디렉토리 내의 *_chunks.jsonl 및 *_rag_index.jsonl 탐색
     for file_path in sft_dir.glob("*.jsonl"):
@@ -126,7 +126,7 @@ def main():
         if "sft" in file_name.lower():
             continue
             
-        chunks = parse_chunks_jsonl(file_path)
+        chunks = parse_chunks_jsonl(file_path, global_seen_ids)
         if not chunks:
             continue
             
