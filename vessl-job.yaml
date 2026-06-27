@@ -1,0 +1,53 @@
+# ============================================================
+# VESSL AI — SFT Finetuning Job Configuration
+# ============================================================
+name: portslm-sft-finetune
+description: "SFT Finetuning for PortSLM model using Qwen2.5-VL-3B"
+
+resources:
+  cluster: "vessl-gcp-oregon"
+  preset: "gpu-l4-single"
+
+image: pytorch/pytorch:2.3.0-cuda12.1-cudnn8-devel
+
+run:
+  - |
+    echo "============================================="
+    echo "🚀 [PortSLM VESSL Job] SFT 파이프라인 시작"
+    echo "============================================="
+    
+    # 1. 레포지토리 클론 및 이동
+    git clone -b sunny https://github.com/SakJaeLim/hps-project.git /workspace/code
+    cd /workspace/code
+    
+    # 2. 필수 의존성 라이브러리 설치
+    pip install --upgrade pip
+    pip install "transformers==4.45.2" "trl==0.11.0" "peft==0.12.0" datasets accelerate bitsandbytes qwen-vl-utils wandb python-docx pymupdf openpyxl
+    
+    # 3. 데이터셋 환경변수 및 모듈 경로 로드
+    export PYTHONPATH=/workspace/code/src
+    
+    # 4. SFT 데이터 전처리 실행 (ChatML 통합 & 분할)
+    python -m snct.data.prepare_vessl_dataset \
+      --sft-dir "04_Finetuning(SFT)" \
+      --out-dir "data/simulated" \
+      --val-ratio 0.1
+      
+    # 5. QLoRA SFT 학습 실행
+    python src/snct/slm/finetune.py \
+      --model-id "Qwen/Qwen2.5-VL-3B-Instruct" \
+      --train-path "data/simulated/train.jsonl" \
+      --val-path "data/simulated/val.jsonl" \
+      --output-dir "/workspace/output/portslm-lora"
+      
+    # 6. LoRA 어댑터 가중치 병합 및 Hugging Face v2 업로드
+    python src/snct/slm/merge_upload.py \
+      --base-model "Qwen/Qwen2.5-VL-3B-Instruct" \
+      --adapter-path "/workspace/output/portslm-lora" \
+      --output-dir "/workspace/output/portslm-merged" \
+      --upload-repo "AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2" \
+      --hf-token "$HF_TOKEN"
+      
+    echo "============================================="
+    echo "🎉 [PortSLM VESSL Job] 모든 학습 및 v2 업로드가 완료되었습니다!"
+    echo "============================================="

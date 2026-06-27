@@ -45,3 +45,25 @@
 
 #### 🎥 전체 실행 동영상 (실시간 적재계획 시각화 애니메이션)
 <video src="file:///c:/Users/lione/Desktop/aSSIST/19_Project/12_hps-project-main/img/stowage_plan_demo.mp4" width="100%" controls autoplay loop muted></video>
+
+---
+
+## 🚀 VESSL AI 기반 파인튜닝 파이프라인 및 데이터 재구성
+
+`04_Finetuning(SFT)` 폴더에 수집된 40여 개의 원본 SFT 데이터셋(.jsonl)을 기반으로, MLOps 플랫폼인 VESSL AI에서 파인튜닝을 원활하게 수행하고 로그를 추적할 수 있도록 파이프라인을 재구성했습니다.
+
+### 1. 데이터 통합 및 ChatML 가공 파이프라인
+* **[prepare_vessl_dataset.py](file:///c:/Users/sunny/Documents/Desktop/study/assist/AI%20Project/hps-project/src/snct/data/prepare_vessl_dataset.py) 신규 생성:**
+  * `04_Finetuning(SFT)/` 내의 모든 원본 jsonl 파일들을 파싱하여 ChatML 메시지 형식(`{"messages": [...]}`)으로 통합 가공합니다.
+  * DB 적재용 백터인 `upsert` 파일들을 SFT 학습 데이터에서 지능적으로 제외하고, 프롬프트(`user_input`)를 기준으로 고유성을 검사해 중복 데이터를 전처리합니다.
+  * 전체 데이터를 임의의 비율(기본 90:10)로 섞어 `train.jsonl` 및 `val.jsonl`로 안전하게 분할 저장합니다.
+
+### 2. VESSL MLOps 학습 파이프라인 및 실시간 로깅
+* **[finetune_vessl.py](file:///c:/Users/sunny/Documents/Desktop/study/assist/AI%20Project/hps-project/src/snct/slm/finetune_vessl.py) 신규 생성:**
+  * VESSL 컨테이너의 표준 마운트 경로(`/input`, `/output`)를 지원하며 로컬 실행 환경으로의 하이브리드 자동 Fallback 기능이 적용되어 있습니다.
+  * **VESSL 대시보드 로깅 통합:** `vessl` 라이브러리를 동적 감지하여 학습 손실(loss) 및 학습 파라미터(lr, epoch)를 실시간으로 MLOps 대시보드에 플로팅해 주는 `VesslCallback`을 탑재했습니다.
+  * 단일 GPU 사양(L4, A10G 등) 및 CUDA 환경에 최적화된 QLoRA(4-bit NF4) 및 Gradient Checkpointing을 지원합니다.
+
+### 3. VESSL Job 제출 설정
+* **[vessl-job.yaml](file:///c:/Users/sunny/Documents/Desktop/study/assist/AI%20Project/hps-project/vessl-job.yaml) 신규 생성:**
+  * MLOps 프리셋(L4 GPU 등), 컨테이너 이미지(CUDA 12.1), 데이터 마운트 및 원클릭 빌드/의존성 설치 스크립트가 정의된 작업 기술서입니다.

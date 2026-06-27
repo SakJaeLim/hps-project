@@ -16,6 +16,12 @@ sqlalchemy
 neo4j             # GraphRAG/LPG Neo4j 드라이버 — spec 07 (미연결 시 CSV 폴백)
 requests
 
+# --- Data Infrastructure ---
+psycopg2-binary   # NEON PostgreSQL 드라이버
+chromadb           # VectorDB — 문서 RAG 시맨틱 검색
+python-docx        # DOCX 파싱 (Safety SOP, 규정 문서)
+pymupdf            # PDF 파싱 (위험물 규정, Stowage Planning)
+
 # --- Serving / API / UI ---
 fastapi
 uvicorn
@@ -28,3 +34,4 @@ pytest
 python-dotenv
 rouge
 openpyxl
+trl               # SFT Trainer (파인튜닝)
