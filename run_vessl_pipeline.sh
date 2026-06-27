@@ -26,7 +26,7 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 # 가상환경 활성화 및 pip 최신화
-source $VENV_DIR/bin/activate
+. $VENV_DIR/bin/activate
 pip install --upgrade pip
 
 # RAG/VectorDB 격리 의존성 설치 (무거운 torch, transformers 제외로 경량화)
