@@ -20,7 +20,7 @@ if sys.platform == "win32":
     except AttributeError:
         pass
 
-def get_embedding_function(model_name="jhgan/ko-sroberta-multitask"):
+def get_embedding_function(model_name="BAAI/bge-m3"):
     """sentence-transformers 모델 로드 및 ChromaDB용 임베딩 함수 반환"""
     try:
         from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
