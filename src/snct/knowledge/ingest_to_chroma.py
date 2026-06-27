@@ -95,6 +95,15 @@ def main():
         print("[ERROR] chromadb 패키지가 없습니다. 설치해 주세요.")
         return
 
+    # 물리적인 sqlite 데이터베이스 메타데이터 캐시 찌꺼기 및 차원 충돌 원천 차단
+    if db_dir.exists():
+        import shutil
+        print(f"🗑️ 기존 VectorDB 저장소 폴더 '{db_dir.absolute()}'를 물리적으로 완전 삭제 후 재빌드합니다.")
+        try:
+            shutil.rmtree(db_dir)
+        except Exception as e:
+            print(f"[WARNING] 기존 VectorDB 폴더 물리 삭제 실패 (순차 초기화 시도): {e}")
+
     # 영속 데이터베이스 클라이언트 생성
     os.makedirs(db_dir, exist_ok=True)
     client = chromadb.PersistentClient(path=str(db_dir.absolute()))
@@ -102,16 +111,8 @@ def main():
     # 임베딩 함수 생성
     embed_fn = get_embedding_function(args.model)
     
-    # 컬렉션 생성 (기존에 768차원 등 다른 모델 데이터가 있을 수 있으므로 초기화 후 생성)
-    try:
-        collections = [c.name for c in client.list_collections()]
-        if args.collection in collections:
-            print(f"🗑️ 기존 컬렉션 '{args.collection}' 감지됨. 임베딩 모델 변경(bge-m3 1024차원) 대응을 위해 기존 DB 컬렉션을 초기화합니다.")
-            client.delete_collection(name=args.collection)
-    except Exception as e:
-        print(f"[WARNING] 기존 컬렉션 삭제 중 에러 발생 (무시하고 생성): {e}")
-
-    collection = client.create_collection(
+    # 컬렉션 생성 (완전 새로 빌드되므로 get_or_create 사용)
+    collection = client.get_or_create_collection(
         name=args.collection,
         embedding_function=embed_fn,
         metadata={"hnsw:space": "cosine"}
