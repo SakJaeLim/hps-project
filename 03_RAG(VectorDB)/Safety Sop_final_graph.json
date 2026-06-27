@@ -1,0 +1,1007 @@
+{
+  "nodes": [
+    {
+      "id": "DOC_SAFETY_SOP",
+      "label": "Document",
+      "properties": {
+        "doc_id": "SAFETY_SOP",
+        "title": "컨테이너 터미널 안전관리 표준운영절차 (Safety Manual SOP)",
+        "domain": "terminal_safety"
+      }
+    },
+    {
+      "id": "CONTROL_HIERARCHY",
+      "label": "Process",
+      "properties": {
+        "name": "통제수단 우선순위",
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "HOC_ELIM",
+      "label": "Control",
+      "properties": {
+        "name": "제거",
+        "rank": 1,
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "HOC_SUBST",
+      "label": "Control",
+      "properties": {
+        "name": "대체",
+        "rank": 2,
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "HOC_ENG",
+      "label": "Control",
+      "properties": {
+        "name": "공학적 통제",
+        "rank": 3,
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "HOC_ADMIN",
+      "label": "Control",
+      "properties": {
+        "name": "관리적 통제",
+        "rank": 4,
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "HOC_PPE",
+      "label": "Control",
+      "properties": {
+        "name": "PPE",
+        "rank": 5,
+        "clause": "SAFE-2.2"
+      }
+    },
+    {
+      "id": "PROC_6STEP",
+      "label": "Process",
+      "properties": {
+        "name": "안전 작업 표준 6단계",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_1",
+      "label": "Step",
+      "properties": {
+        "name": "위험성 평가(JSA)",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_2",
+      "label": "Step",
+      "properties": {
+        "name": "작업허가(PTW)",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_3",
+      "label": "Step",
+      "properties": {
+        "name": "통제수단 적용",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_4",
+      "label": "Step",
+      "properties": {
+        "name": "안전 조건 확인",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_5",
+      "label": "Step",
+      "properties": {
+        "name": "작업 시행·상시 감시",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "SS_6",
+      "label": "Step",
+      "properties": {
+        "name": "작업 종료·허가 마감",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "STOP_WORK",
+      "label": "Action",
+      "properties": {
+        "name": "작업 중지권",
+        "clause": "SAFE-3"
+      }
+    },
+    {
+      "id": "ZONE_QUAY",
+      "label": "Zone",
+      "properties": {
+        "name": "안벽(Quay)",
+        "clause": "SAFE-4.1"
+      }
+    },
+    {
+      "id": "ZONE_QUAY_HZ1",
+      "label": "Hazard",
+      "properties": {
+        "name": "크레인 낙하물"
+      }
+    },
+    {
+      "id": "ZONE_QUAY_HZ2",
+      "label": "Hazard",
+      "properties": {
+        "name": "스프레더 충돌"
+      }
+    },
+    {
+      "id": "ZONE_QUAY_HZ3",
+      "label": "Hazard",
+      "properties": {
+        "name": "현측·해상 추락"
+      }
+    },
+    {
+      "id": "ZONE_QUAY_HZ4",
+      "label": "Hazard",
+      "properties": {
+        "name": "와이어 파단"
+      }
+    },
+    {
+      "id": "ZONE_YARD",
+      "label": "Zone",
+      "properties": {
+        "name": "야드(Yard)",
+        "clause": "SAFE-4.2"
+      }
+    },
+    {
+      "id": "ZONE_YARD_HZ1",
+      "label": "Hazard",
+      "properties": {
+        "name": "야드크레인 협착·충돌"
+      }
+    },
+    {
+      "id": "ZONE_YARD_HZ2",
+      "label": "Hazard",
+      "properties": {
+        "name": "스택 붕괴"
+      }
+    },
+    {
+      "id": "ZONE_YARD_HZ3",
+      "label": "Hazard",
+      "properties": {
+        "name": "YT 차량사고"
+      }
+    },
+    {
+      "id": "ZONE_YARD_HZ4",
+      "label": "Hazard",
+      "properties": {
+        "name": "자동화구역 무단진입"
+      }
+    },
+    {
+      "id": "ZONE_GATE",
+      "label": "Zone",
+      "properties": {
+        "name": "게이트(Gate)",
+        "clause": "SAFE-4.3"
+      }
+    },
+    {
+      "id": "ZONE_GATE_HZ1",
+      "label": "Hazard",
+      "properties": {
+        "name": "외부 차량 혼입"
+      }
+    },
+    {
+      "id": "ZONE_GATE_HZ2",
+      "label": "Hazard",
+      "properties": {
+        "name": "기사 하차 사고"
+      }
+    },
+    {
+      "id": "ZONE_GATE_HZ3",
+      "label": "Hazard",
+      "properties": {
+        "name": "트위스트록 끼임"
+      }
+    },
+    {
+      "id": "CARGO_DG",
+      "label": "CargoType",
+      "properties": {
+        "name": "DG",
+        "clause": "SAFE-5-DG",
+        "basis": "IMDG Code"
+      }
+    },
+    {
+      "id": "CARGO_RF",
+      "label": "CargoType",
+      "properties": {
+        "name": "Reefer",
+        "clause": "SAFE-5-RF",
+        "basis": "터미널 기준"
+      }
+    },
+    {
+      "id": "CARGO_OOG",
+      "label": "CargoType",
+      "properties": {
+        "name": "OOG",
+        "clause": "SAFE-5-OOG",
+        "basis": "CSC·터미널 기준"
+      }
+    },
+    {
+      "id": "STD_ILO",
+      "label": "Standard",
+      "properties": {
+        "name": "ILO Safety and health in ports"
+      }
+    },
+    {
+      "id": "STD_C152",
+      "label": "Standard",
+      "properties": {
+        "name": "ILO C152"
+      }
+    },
+    {
+      "id": "STD_IMDG",
+      "label": "Standard",
+      "properties": {
+        "name": "IMDG Code"
+      }
+    },
+    {
+      "id": "STD_ISPS",
+      "label": "Standard",
+      "properties": {
+        "name": "ISPS Code"
+      }
+    },
+    {
+      "id": "STD_CSC",
+      "label": "Standard",
+      "properties": {
+        "name": "CSC 1972"
+      }
+    },
+    {
+      "id": "EMERGENCY",
+      "label": "Process",
+      "properties": {
+        "name": "비상대응·사고보고",
+        "clause": "SAFE-6"
+      }
+    },
+    {
+      "id": "EMG_9828",
+      "label": "EmergencyType",
+      "properties": {
+        "name": "DG 누출·화재"
+      }
+    },
+    {
+      "id": "EMG_9419",
+      "label": "EmergencyType",
+      "properties": {
+        "name": "인명사고"
+      }
+    },
+    {
+      "id": "EMG_8967",
+      "label": "EmergencyType",
+      "properties": {
+        "name": "컨테이너 붕괴"
+      }
+    },
+    {
+      "id": "EMG_7069",
+      "label": "EmergencyType",
+      "properties": {
+        "name": "기상 악화"
+      }
+    },
+    {
+      "id": "EMG_2007",
+      "label": "EmergencyType",
+      "properties": {
+        "name": "해상 오염"
+      }
+    },
+    {
+      "id": "EX_RMG_CRUSH",
+      "label": "Example",
+      "properties": {
+        "scenario": "YB02 RMG 협착 위험",
+        "clause": "SAFE-7"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-001",
+      "label": "Chunk",
+      "properties": {
+        "section": "1",
+        "title": "개요 및 적용 범위",
+        "level": "L1"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-002",
+      "label": "Chunk",
+      "properties": {
+        "section": "근거표준",
+        "title": "근거 표준",
+        "level": "L1"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-003",
+      "label": "Chunk",
+      "properties": {
+        "section": "2.1",
+        "title": "안전보건경영시스템(OSHMS)",
+        "level": "L2"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-004",
+      "label": "Chunk",
+      "properties": {
+        "section": "2.2",
+        "title": "통제수단 우선순위 (Hierarchy of Controls)",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-005",
+      "label": "Chunk",
+      "properties": {
+        "section": "3",
+        "title": "안전 작업 표준 프로세스 6단계",
+        "level": "L2"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-006",
+      "label": "Chunk",
+      "properties": {
+        "section": "4.1",
+        "title": "안벽(Quay) STS 크레인 위험·통제",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-007",
+      "label": "Chunk",
+      "properties": {
+        "section": "4.2",
+        "title": "야드(Yard) RTG/RMG·YT 위험·통제",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-008",
+      "label": "Chunk",
+      "properties": {
+        "section": "4.3",
+        "title": "게이트(Gate) 반출입 위험·통제",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-009",
+      "label": "Chunk",
+      "properties": {
+        "section": "5-DG",
+        "title": "특수화물 안전 — DG(위험물)",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-010",
+      "label": "Chunk",
+      "properties": {
+        "section": "5-RF",
+        "title": "특수화물 안전 — Reefer(냉동)",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-011",
+      "label": "Chunk",
+      "properties": {
+        "section": "5-OOG",
+        "title": "특수화물 안전 — OOG(초과화물)",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-012",
+      "label": "Chunk",
+      "properties": {
+        "section": "6",
+        "title": "비상대응 및 사고 보고",
+        "level": "L2"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-013",
+      "label": "Chunk",
+      "properties": {
+        "section": "7",
+        "title": "예시 사례 — 야드 RTG 작업 중 보행자 협착 위험",
+        "level": "L3"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-014",
+      "label": "Chunk",
+      "properties": {
+        "section": "8",
+        "title": "SLM 파인튜닝 활용 방안",
+        "level": "L2"
+      }
+    },
+    {
+      "id": "SAFETY_SOP-015",
+      "label": "Chunk",
+      "properties": {
+        "section": "8-gov",
+        "title": "거버넌스",
+        "level": "L2"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "CONTROL_HIERARCHY",
+      "rel": "HAS_PROCESS",
+      "properties": {}
+    },
+    {
+      "source": "CONTROL_HIERARCHY",
+      "target": "HOC_ELIM",
+      "rel": "HAS_CONTROL",
+      "properties": {}
+    },
+    {
+      "source": "CONTROL_HIERARCHY",
+      "target": "HOC_SUBST",
+      "rel": "HAS_CONTROL",
+      "properties": {}
+    },
+    {
+      "source": "HOC_ELIM",
+      "target": "HOC_SUBST",
+      "rel": "PRIORITY_OVER",
+      "properties": {
+        "note": "rank 1 > 2"
+      }
+    },
+    {
+      "source": "CONTROL_HIERARCHY",
+      "target": "HOC_ENG",
+      "rel": "HAS_CONTROL",
+      "properties": {}
+    },
+    {
+      "source": "HOC_SUBST",
+      "target": "HOC_ENG",
+      "rel": "PRIORITY_OVER",
+      "properties": {
+        "note": "rank 2 > 3"
+      }
+    },
+    {
+      "source": "CONTROL_HIERARCHY",
+      "target": "HOC_ADMIN",
+      "rel": "HAS_CONTROL",
+      "properties": {}
+    },
+    {
+      "source": "HOC_ENG",
+      "target": "HOC_ADMIN",
+      "rel": "PRIORITY_OVER",
+      "properties": {
+        "note": "rank 3 > 4"
+      }
+    },
+    {
+      "source": "CONTROL_HIERARCHY",
+      "target": "HOC_PPE",
+      "rel": "HAS_CONTROL",
+      "properties": {}
+    },
+    {
+      "source": "HOC_ADMIN",
+      "target": "HOC_PPE",
+      "rel": "PRIORITY_OVER",
+      "properties": {
+        "note": "rank 4 > 5"
+      }
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "PROC_6STEP",
+      "rel": "HAS_PROCESS",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_1",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_2",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "SS_1",
+      "target": "SS_2",
+      "rel": "NEXT",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_3",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "SS_2",
+      "target": "SS_3",
+      "rel": "NEXT",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_4",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "SS_3",
+      "target": "SS_4",
+      "rel": "NEXT",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_5",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "SS_4",
+      "target": "SS_5",
+      "rel": "NEXT",
+      "properties": {}
+    },
+    {
+      "source": "PROC_6STEP",
+      "target": "SS_6",
+      "rel": "HAS_STEP",
+      "properties": {}
+    },
+    {
+      "source": "SS_5",
+      "target": "SS_6",
+      "rel": "NEXT",
+      "properties": {}
+    },
+    {
+      "source": "SS_4",
+      "target": "STOP_WORK",
+      "rel": "TRIGGERS",
+      "properties": {
+        "cond": "조건 미충족"
+      }
+    },
+    {
+      "source": "SS_5",
+      "target": "STOP_WORK",
+      "rel": "TRIGGERS",
+      "properties": {
+        "cond": "이상 발생"
+      }
+    },
+    {
+      "source": "STOP_WORK",
+      "target": "SS_1",
+      "rel": "REASSESS_LOOP",
+      "properties": {
+        "note": "시정 후 재평가"
+      }
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "ZONE_QUAY",
+      "rel": "HAS_ZONE",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY",
+      "target": "ZONE_QUAY_HZ1",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY_HZ1",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY",
+      "target": "ZONE_QUAY_HZ2",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY_HZ2",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY",
+      "target": "ZONE_QUAY_HZ3",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY_HZ3",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY",
+      "target": "ZONE_QUAY_HZ4",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_QUAY_HZ4",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "ZONE_YARD",
+      "rel": "HAS_ZONE",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD",
+      "target": "ZONE_YARD_HZ1",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD_HZ1",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD",
+      "target": "ZONE_YARD_HZ2",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD_HZ2",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD",
+      "target": "ZONE_YARD_HZ3",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD_HZ3",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD",
+      "target": "ZONE_YARD_HZ4",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_YARD_HZ4",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "ZONE_GATE",
+      "rel": "HAS_ZONE",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE",
+      "target": "ZONE_GATE_HZ1",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE_HZ1",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE",
+      "target": "ZONE_GATE_HZ2",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE_HZ2",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE",
+      "target": "ZONE_GATE_HZ3",
+      "rel": "HAS_HAZARD",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE_HZ3",
+      "target": "HOC_ENG",
+      "rel": "MITIGATED_BY",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "CARGO_DG",
+      "rel": "HAS_CARGO_RULE",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "CARGO_RF",
+      "rel": "HAS_CARGO_RULE",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "CARGO_OOG",
+      "rel": "HAS_CARGO_RULE",
+      "properties": {}
+    },
+    {
+      "source": "CARGO_DG",
+      "target": "STD_IMDG",
+      "rel": "BASED_ON",
+      "properties": {}
+    },
+    {
+      "source": "CARGO_OOG",
+      "target": "STD_CSC",
+      "rel": "BASED_ON",
+      "properties": {}
+    },
+    {
+      "source": "ZONE_GATE",
+      "target": "STD_ISPS",
+      "rel": "REFERENCES",
+      "properties": {
+        "note": "신원·반입정보 확인 연계"
+      }
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "STD_ILO",
+      "rel": "BASED_ON",
+      "properties": {}
+    },
+    {
+      "source": "CARGO_DG",
+      "target": "RULE_SPECIAL",
+      "rel": "CROSS_DOC",
+      "properties": {
+        "note": "적재 SOP 특수화물 지정위치(SOP-3.3)와 정합"
+      }
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "EMERGENCY",
+      "rel": "HAS_PROCESS",
+      "properties": {}
+    },
+    {
+      "source": "EMERGENCY",
+      "target": "EMG_9828",
+      "rel": "HANDLES",
+      "properties": {}
+    },
+    {
+      "source": "EMERGENCY",
+      "target": "EMG_9419",
+      "rel": "HANDLES",
+      "properties": {}
+    },
+    {
+      "source": "EMERGENCY",
+      "target": "EMG_8967",
+      "rel": "HANDLES",
+      "properties": {}
+    },
+    {
+      "source": "EMERGENCY",
+      "target": "EMG_7069",
+      "rel": "HANDLES",
+      "properties": {}
+    },
+    {
+      "source": "EMERGENCY",
+      "target": "EMG_2007",
+      "rel": "HANDLES",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "EX_RMG_CRUSH",
+      "rel": "HAS_EXAMPLE",
+      "properties": {}
+    },
+    {
+      "source": "EX_RMG_CRUSH",
+      "target": "HOC_ENG",
+      "rel": "CITES",
+      "properties": {}
+    },
+    {
+      "source": "EX_RMG_CRUSH",
+      "target": "HOC_ADMIN",
+      "rel": "CITES",
+      "properties": {}
+    },
+    {
+      "source": "EX_RMG_CRUSH",
+      "target": "ZONE_YARD",
+      "rel": "ABOUT",
+      "properties": {}
+    },
+    {
+      "source": "EX_RMG_CRUSH",
+      "target": "STOP_WORK",
+      "rel": "RESULTS_IN",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-001",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-002",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-003",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-004",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-005",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-006",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-007",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-008",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-009",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-010",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-011",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-012",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-013",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-014",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    },
+    {
+      "source": "DOC_SAFETY_SOP",
+      "target": "SAFETY_SOP-015",
+      "rel": "HAS_CHUNK",
+      "properties": {}
+    }
+  ],
+  "stats": {
+    "nodes": 59,
+    "edges": 84
+  }
+}

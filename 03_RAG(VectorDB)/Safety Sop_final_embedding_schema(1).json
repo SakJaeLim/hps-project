@@ -1,0 +1,74 @@
+{
+  "collection": "portslm_regulatory",
+  "embedding_model": "BAAI/bge-m3",
+  "dim": 1024,
+  "distance": "cosine",
+  "retrieval": {
+    "mode": "hybrid",
+    "dense": "bge-m3",
+    "sparse": "bm25",
+    "fusion": "RRF",
+    "rrf_k": 60,
+    "top_k": 8
+  },
+  "fields": [
+    {
+      "name": "chunk_id",
+      "type": "keyword",
+      "role": "primary_key"
+    },
+    {
+      "name": "doc_id",
+      "type": "keyword",
+      "role": "filter",
+      "note": "멀티문서 필터 (ISPS/IMO_GUIDEBOOK/STOWAGE_SOP/SAFETY_SOP)"
+    },
+    {
+      "name": "doc_title",
+      "type": "text",
+      "role": "metadata"
+    },
+    {
+      "name": "section",
+      "type": "keyword",
+      "role": "filter"
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "role": "embedding+metadata"
+    },
+    {
+      "name": "level",
+      "type": "keyword",
+      "role": "filter",
+      "note": "L1/L2/L3"
+    },
+    {
+      "name": "text",
+      "type": "text",
+      "role": "embedding"
+    },
+    {
+      "name": "clause_ids",
+      "type": "keyword[]",
+      "role": "filter+citation"
+    },
+    {
+      "name": "tags",
+      "type": "keyword[]",
+      "role": "filter"
+    },
+    {
+      "name": "vector",
+      "type": "dense_vector(1024)",
+      "role": "dense_index"
+    },
+    {
+      "name": "sparse_vector",
+      "type": "sparse",
+      "role": "bm25_index"
+    }
+  ],
+  "embedding_input_template": "[{doc_id}] {title}\n{text}"
+}

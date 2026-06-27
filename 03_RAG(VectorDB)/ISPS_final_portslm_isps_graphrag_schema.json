@@ -1,0 +1,205 @@
+{
+  "schema_name": "PortAgent_ISPS_Security_KG",
+  "description": "IMO Maritime Security Manual / ISPS Code 기반 보안 도메인 LPG. 규정·책임주체·계획문서·보안등급·제약을 모델링하여 SLM 설명 및 text2Cypher 규정검증에 활용",
+  "node_labels": [
+    {
+      "label": "Regulation",
+      "props": [
+        "ref",
+        "instrument",
+        "mandatory",
+        "title"
+      ],
+      "example": {
+        "ref": "A/9.4.2",
+        "instrument": "ISPS Code Part A",
+        "mandatory": true,
+        "title": "Restricted areas"
+      }
+    },
+    {
+      "label": "Actor",
+      "props": [
+        "role",
+        "appointed_by",
+        "scope"
+      ],
+      "example": {
+        "role": "PFSO",
+        "appointed_by": "port facility operator",
+        "scope": "port facility"
+      }
+    },
+    {
+      "label": "PlanDocument",
+      "props": [
+        "type",
+        "approved_by"
+      ],
+      "example": {
+        "type": "PFSP",
+        "approved_by": "Designated Authority"
+      }
+    },
+    {
+      "label": "SecurityLevel",
+      "props": [
+        "level",
+        "name",
+        "description"
+      ],
+      "example": {
+        "level": 1,
+        "name": "normal",
+        "description": "minimum protective measures maintained at all times"
+      }
+    },
+    {
+      "label": "Procedure",
+      "props": [
+        "name",
+        "section",
+        "applies_at_level"
+      ],
+      "example": {
+        "name": "Access Control",
+        "section": "9",
+        "applies_at_level": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "label": "Concept",
+      "props": [
+        "name",
+        "definition",
+        "ref"
+      ],
+      "example": {
+        "name": "Declaration of Security",
+        "definition": "written agreement on respective security responsibilities",
+        "ref": "§3.4.1"
+      }
+    },
+    {
+      "label": "RestrictedArea",
+      "props": [
+        "identified_in",
+        "access_rule"
+      ]
+    },
+    {
+      "label": "Constraint",
+      "props": [
+        "rule_id",
+        "source",
+        "description",
+        "severity"
+      ]
+    }
+  ],
+  "relationship_types": [
+    {
+      "type": "RESPONSIBLE_FOR",
+      "from": "Actor",
+      "to": "Procedure",
+      "note": "PFSO→Access Control 등"
+    },
+    {
+      "type": "GOVERNED_BY",
+      "from": "Procedure",
+      "to": "Regulation",
+      "note": "절차가 근거하는 조항"
+    },
+    {
+      "type": "DEFINED_IN",
+      "from": "Concept",
+      "to": "Regulation"
+    },
+    {
+      "type": "APPOINTED_UNDER",
+      "from": "Actor",
+      "to": "Regulation",
+      "note": "PFSO=A/17, SSO=A/12, CSO=A/11"
+    },
+    {
+      "type": "DOCUMENTED_IN",
+      "from": "Procedure",
+      "to": "PlanDocument",
+      "note": "절차→PFSP/SSP"
+    },
+    {
+      "type": "LIAISES_WITH",
+      "from": "Actor",
+      "to": "Actor",
+      "note": "PFSO↔CSO↔SSO 연락체계"
+    },
+    {
+      "type": "ESCALATES_AT",
+      "from": "Procedure",
+      "to": "SecurityLevel",
+      "note": "등급 상승 시 강화"
+    },
+    {
+      "type": "REQUIRES_DOS",
+      "from": "SecurityLevel",
+      "to": "Concept",
+      "note": "등급 불일치 시 DoS 요구"
+    },
+    {
+      "type": "IDENTIFIED_IN",
+      "from": "RestrictedArea",
+      "to": "PlanDocument",
+      "note": "제한구역은 PFSP/SSP에 명시"
+    },
+    {
+      "type": "VIOLATES",
+      "from": "PlanDocument",
+      "to": "Constraint",
+      "note": "규정 미준수 검증 결과"
+    }
+  ],
+  "extraction_rules": [
+    {
+      "pattern": "역할 약어(PFSO/SSO/CSO) + appoint",
+      "creates": "Actor + APPOINTED_UNDER edge"
+    },
+    {
+      "pattern": "조항 참조 (A/x.y, §n.n)",
+      "creates": "Regulation 노드 + GOVERNED_BY/DEFINED_IN edge"
+    },
+    {
+      "pattern": "security level 1/2/3",
+      "creates": "SecurityLevel 노드 + ESCALATES_AT edge"
+    },
+    {
+      "pattern": "Section n 'Procedures for ...'",
+      "creates": "Procedure 노드 + DOCUMENTED_IN edge"
+    },
+    {
+      "pattern": "정의문 ('X means ...', 'X is a written ...')",
+      "creates": "Concept 노드 + DEFINED_IN edge"
+    }
+  ],
+  "validation_cypher_examples": [
+    {
+      "intent": "보안등급 불일치 시 DoS 필요 여부 판정",
+      "cypher": "MATCH (sl:SecurityLevel)-[:REQUIRES_DOS]->(c:Concept {name:'Declaration of Security'}) WHERE sl.level >= 2 RETURN sl.level, c.ref"
+    },
+    {
+      "intent": "제한구역 접근통제 절차의 근거 규정 추적",
+      "cypher": "MATCH (a:RestrictedArea)-[:IDENTIFIED_IN]->(pl:PlanDocument)<-[:DOCUMENTED_IN]-(p:Procedure {name:'Access Control'})-[:GOVERNED_BY]->(r:Regulation) RETURN p.name, r.ref, r.instrument"
+    },
+    {
+      "intent": "특정 역할의 책임 절차와 근거 조항 일괄 조회 (SLM 설명 근거)",
+      "cypher": "MATCH (a:Actor {role:'PFSO'})-[:RESPONSIBLE_FOR]->(p:Procedure)-[:GOVERNED_BY]->(r:Regulation) RETURN p.name, collect(r.ref) AS basis"
+    }
+  ],
+  "cross_graph_link": {
+    "note": "ISPS Constraint 노드는 BAPLIE KG의 Slot/Container와 연결되어 보안+적재 통합검증을 구성",
+    "example": "(:Slot)-[:VIOLATES]->(:Constraint {source:'ISPS A/9.4.2', description:'restricted area access'})"
+  }
+}

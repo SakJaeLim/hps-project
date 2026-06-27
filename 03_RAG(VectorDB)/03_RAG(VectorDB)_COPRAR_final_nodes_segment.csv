@@ -1,0 +1,27 @@
+chunk_id:ID(Seg),segment_id,title,usage,level:int,page:int,chunk_type,vector_ref,:LABEL
+COPRAR_VLCPCS_v2.3::OVERVIEW::f6136564,OVERVIEW,COPRAR 메시지 개요,M,0,9,concept,COPRAR_VLCPCS_v2.3::OVERVIEW::f6136564,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::MSG_FLOW::2da4e1e5,MSG,메시징 흐름 (COPLIS/COPORD/COARRI/APERAK),M,0,8,concept,COPRAR_VLCPCS_v2.3::MSG_FLOW::2da4e1e5,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::UNB::c5ebcbf0,UNB,UNB Interchange Header,M,0,11,segment,COPRAR_VLCPCS_v2.3::UNB::c5ebcbf0,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::UNH::d3c79e40,UNH,UNH Message Header,M,0,12,segment,COPRAR_VLCPCS_v2.3::UNH::d3c79e40,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::BGM::55f6ce93,BGM,BGM Beginning of Message,M,0,13,segment,COPRAR_VLCPCS_v2.3::BGM::55f6ce93,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::DTM_msg::244918b9,DTM,DTM Date/Time/Period (메시지 일시),R,1,15,segment,COPRAR_VLCPCS_v2.3::DTM_msg::244918b9,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::RFF_sg1::aa3a601b,RFF,"RFF Reference (SG1, 메시지 참조)",O,1,16,segment,COPRAR_VLCPCS_v2.3::RFF_sg1::aa3a601b,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::TDT_sg2::a210c939,TDT,"TDT Details of Transport (SG2, 본선 운송)",M,1,18,segment,COPRAR_VLCPCS_v2.3::TDT_sg2::a210c939,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::RFF_sg2::6f8abf9c,RFF,"RFF Reference (SG2, 본선 입항 참조)",R,2,20,segment,COPRAR_VLCPCS_v2.3::RFF_sg2::6f8abf9c,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::LOC_sg3::e09ca29b,LOC,"LOC Place/Location (SG3, 적/양하 항)",O,2,21,segment,COPRAR_VLCPCS_v2.3::LOC_sg3::e09ca29b,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::NAD_sg4::77e795cf,NAD,"NAD Name and Address (SG4, 당사자)",M,1,24,segment,COPRAR_VLCPCS_v2.3::NAD_sg4::77e795cf,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::EQD_sg6::18165b86,EQD,"EQD Equipment Details (SG6, 컨테이너 핵심)",M,1,29,segment,COPRAR_VLCPCS_v2.3::EQD_sg6::18165b86,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::RFF_sg6::fcba7842,RFF,"RFF Reference (SG6, 컨테이너 참조)",O,2,31,segment,COPRAR_VLCPCS_v2.3::RFF_sg6::fcba7842,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::LOC_sg6::c2efab03,LOC,"LOC Place/Location (SG6, 컨테이너 항/장소)",R,2,35,segment,COPRAR_VLCPCS_v2.3::LOC_sg6::c2efab03,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::MEA_sg6::7ded2768,MEA,"MEA Measurements (SG6, 중량)",O,2,38,segment,COPRAR_VLCPCS_v2.3::MEA_sg6::7ded2768,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::DIM_sg6::c859f797,DIM,"DIM Dimensions (SG6, OOG 치수)",O,2,39,segment,COPRAR_VLCPCS_v2.3::DIM_sg6::c859f797,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::TMP_sg7::bc1e6167,TMP,"TMP Temperature (SG7, Reefer 설정온도)",M,2,41,segment,COPRAR_VLCPCS_v2.3::TMP_sg7::bc1e6167,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::RNG_sg7::0d450aab,RNG,"RNG Range Details (SG7, 온도범위)",O,3,42,segment,COPRAR_VLCPCS_v2.3::RNG_sg7::0d450aab,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::SEL_sg6::cb390a84,SEL,"SEL Seal Number (SG6, 봉인번호)",O,2,43,segment,COPRAR_VLCPCS_v2.3::SEL_sg6::cb390a84,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::FTX_sg6::0d612827,FTX,"FTX Free Text (SG6, 적부지시/속성)",O,2,44,segment,COPRAR_VLCPCS_v2.3::FTX_sg6::0d612827,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::DGS_sg8::6ad50c08,DGS,"DGS Dangerous Goods (SG8, 위험물)",O,2,46,segment,COPRAR_VLCPCS_v2.3::DGS_sg8::6ad50c08,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::TDT_sg10::8a513ab2,TDT,"TDT Details of Transport (SG10, 후속 환적운송)",M,2,54,segment,COPRAR_VLCPCS_v2.3::TDT_sg10::8a513ab2,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::LOC_sg11::c74f5542,LOC,"LOC Place/Location (SG11, 환적 후 양하항)",O,3,59,segment,COPRAR_VLCPCS_v2.3::LOC_sg11::c74f5542,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::NAD_sg6::cda6188c,NAD,"NAD Name and Address (SG6, 컨테이너 운영선사)",M,2,61,segment,COPRAR_VLCPCS_v2.3::NAD_sg6::cda6188c,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::CNT::f2ed66c4,CNT,CNT Control Total,O,0,63,segment,COPRAR_VLCPCS_v2.3::CNT::f2ed66c4,Segment;EvidenceChunk
+COPRAR_VLCPCS_v2.3::UNT::8dcfbba4,UNT,UNT Message Trailer,M,0,64,segment,COPRAR_VLCPCS_v2.3::UNT::8dcfbba4,Segment;EvidenceChunk

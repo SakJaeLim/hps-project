@@ -1,0 +1,252 @@
+{
+  "schema_name": "PortAgent_MOVINS_KG",
+  "description": "SMDG MOVINS 2.1.2 적재지시 메시지의 LPG. BAPLIE가 정적 상태(stowage state) 그래프인 데 비해, MOVINS는 동작/이동(handling action) 그래프로, RL 액션 공간(discharge/load/shift/restow) 및 DecisionLog와 직접 연결",
+  "node_labels": [
+    {
+      "label": "Segment",
+      "props": [
+        "code",
+        "name",
+        "group",
+        "usage"
+      ]
+    },
+    {
+      "label": "SegmentGroup",
+      "props": [
+        "number",
+        "trigger",
+        "members"
+      ]
+    },
+    {
+      "label": "HandlingCode",
+      "props": [
+        "code",
+        "meaning",
+        "basis"
+      ],
+      "example": {
+        "code": "RES",
+        "meaning": "Restow (bay-to-bay, via quay)",
+        "basis": "cell or bay/row/tier range"
+      }
+    },
+    {
+      "label": "CodeValue",
+      "props": [
+        "element_tag",
+        "code",
+        "meaning"
+      ]
+    },
+    {
+      "label": "HandlingInstruction",
+      "props": [
+        "type",
+        "sequence",
+        "port_of_call"
+      ],
+      "example": {
+        "type": "RES",
+        "sequence": 4
+      }
+    },
+    {
+      "label": "Move",
+      "props": [
+        "move_id",
+        "from_slot",
+        "to_slot",
+        "equipment_id"
+      ]
+    },
+    {
+      "label": "Container",
+      "props": [
+        "equipment_id",
+        "iso_size_type",
+        "full_empty",
+        "status"
+      ]
+    },
+    {
+      "label": "Slot",
+      "props": [
+        "bbrrtt",
+        "bay",
+        "row",
+        "tier",
+        "format"
+      ]
+    },
+    {
+      "label": "POD",
+      "props": [
+        "unlocode",
+        "name",
+        "seq"
+      ]
+    },
+    {
+      "label": "DangerousGoods",
+      "props": [
+        "imdg_class",
+        "un_number",
+        "flashpoint_cel"
+      ]
+    },
+    {
+      "label": "Breakbulk",
+      "props": [
+        "bb_ref",
+        "leading_slot",
+        "carrier"
+      ]
+    }
+  ],
+  "relationship_types": [
+    {
+      "type": "CONTAINS_SEGMENT",
+      "from": "SegmentGroup",
+      "to": "Segment"
+    },
+    {
+      "type": "HAS_CODE",
+      "from": "Segment",
+      "to": "HandlingCode"
+    },
+    {
+      "type": "INSTRUCTS",
+      "from": "HandlingInstruction",
+      "to": "Container",
+      "note": "HAN→대상 컨테이너/셀"
+    },
+    {
+      "type": "TARGETS_SLOT",
+      "from": "HandlingInstruction",
+      "to": "Slot",
+      "note": "LOC+147 셀 지정"
+    },
+    {
+      "type": "MOVES_FROM",
+      "from": "Move",
+      "to": "Slot",
+      "note": "SHI/RES 원위치 (LOC+147)"
+    },
+    {
+      "type": "MOVES_TO",
+      "from": "Move",
+      "to": "Slot",
+      "note": "목적위치 (RFF+DSI)"
+    },
+    {
+      "type": "OF_CONTAINER",
+      "from": "Move",
+      "to": "Container"
+    },
+    {
+      "type": "FOR_POD",
+      "from": "HandlingInstruction",
+      "to": "POD",
+      "note": "LOA의 주속성=양하항 (LOC+11)"
+    },
+    {
+      "type": "CHANGES_POD",
+      "from": "HandlingInstruction",
+      "to": "POD",
+      "note": "COD: 물리이동 없이 POD 변경"
+    },
+    {
+      "type": "CARRIES_DG",
+      "from": "Container",
+      "to": "DangerousGoods"
+    },
+    {
+      "type": "REFERENCES_LEADING",
+      "from": "Slot",
+      "to": "Breakbulk",
+      "note": "RFF+ET → leading stowage position"
+    }
+  ],
+  "handling_to_rl_action": [
+    {
+      "han": "LOA",
+      "rl_action": "PLACE(container, slot)",
+      "reward_axis": "R1-R15 적재 적합도"
+    },
+    {
+      "han": "DIS",
+      "rl_action": "REMOVE(container, slot)",
+      "reward_axis": "양하 효율(OSR)"
+    },
+    {
+      "han": "SHI",
+      "rl_action": "MOVE_WITHIN_BAY(from_slot, to_slot)",
+      "reward_axis": "shifting 최소화(WBI)"
+    },
+    {
+      "han": "RES",
+      "rl_action": "MOVE_ACROSS_BAY(from_slot, to_slot)",
+      "reward_axis": "restow 비용(CWVR)"
+    },
+    {
+      "han": "COD",
+      "rl_action": "RELABEL_POD(container, new_pod)",
+      "reward_axis": "POD 순서 정합"
+    },
+    {
+      "han": "EXC/BAL/VOI",
+      "rl_action": "MASK_SLOT(slot, reason)",
+      "reward_axis": "가용성/안전 제약"
+    }
+  ],
+  "segment_to_instance_mapping": [
+    {
+      "segment": "HAN",
+      "creates": "HandlingInstruction (type=c524.e4079)"
+    },
+    {
+      "segment": "LOC+147",
+      "creates": "Slot (bbrrtt=c517.e3225, format=c517.e3055)"
+    },
+    {
+      "segment": "LOC+11",
+      "creates": "POD + FOR_POD/CHANGES_POD edge"
+    },
+    {
+      "segment": "EQD",
+      "creates": "Container (equipment_id=c237.e8260, iso=c224.e8155, full_empty=e8169)"
+    },
+    {
+      "segment": "RFF+DSI",
+      "sets": "Move.to_slot (SHI/RES 목적셀)"
+    },
+    {
+      "segment": "RFF+ET",
+      "creates": "REFERENCES_LEADING edge (breakbulk)"
+    },
+    {
+      "segment": "DGS",
+      "creates": "DangerousGoods + CARRIES_DG"
+    }
+  ],
+  "validation_cypher_examples": [
+    {
+      "intent": "RES 이동의 출발-목적 셀 쌍 추출 (RL restow 액션 재구성)",
+      "cypher": "MATCH (m:Move)-[:MOVES_FROM]->(f:Slot),(m)-[:MOVES_TO]->(t:Slot),(m)-[:OF_CONTAINER]->(c:Container) RETURN c.equipment_id, f.bbrrtt AS from, t.bbrrtt AS to"
+    },
+    {
+      "intent": "DG 컨테이너의 LOA 지시가 지정 셀을 정확히 따르는지 검증",
+      "cypher": "MATCH (h:HandlingInstruction {type:'LOA'})-[:INSTRUCTS]->(c:Container)-[:CARRIES_DG]->(d:DangerousGoods),(h)-[:TARGETS_SLOT]->(s:Slot) RETURN c.equipment_id,d.imdg_class,s.bbrrtt"
+    },
+    {
+      "intent": "COD 지시로 POD가 변경된 컨테이너 목록",
+      "cypher": "MATCH (h:HandlingInstruction {type:'COD'})-[:INSTRUCTS]->(c:Container),(h)-[:CHANGES_POD]->(p:POD) RETURN c.equipment_id, p.name"
+    }
+  ],
+  "cross_graph_link": {
+    "note": "MOVINS의 Slot/Container/POD 노드는 BAPLIE KG와 동일 식별자(bbrrtt, equipment_id, unlocode)를 공유하여 단일 LPG로 병합됨. MOVINS는 BAPLIE 상태에 대한 '변화(delta)'를 표현 → BAPLIE(상태) + MOVINS(동작) + ISPS(제약)의 3중 통합 그래프 구성",
+    "example": "(:Container)-[:ASSIGNED_TO {source:'BAPLIE'}]->(:Slot)<-[:MOVES_TO {source:'MOVINS'}]-(:Move)"
+  }
+}

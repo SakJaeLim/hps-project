@@ -1,0 +1,35 @@
+{
+  "collection": "portslm_regulatory",
+  "embedding": {
+    "model": "BAAI/bge-m3",
+    "dim": 1024,
+    "metric": "cosine",
+    "normalize": true
+  },
+  "payload_fields": {
+    "chunk_id": "keyword",
+    "doc_id": "keyword",
+    "part": "keyword",
+    "level": "keyword",
+    "section": "keyword",
+    "topic": "keyword[]",
+    "security_levels": "integer[]",
+    "actors": "keyword[]",
+    "source_ref": "keyword",
+    "title_ko": "text",
+    "text": "text"
+  },
+  "indexes": [
+    "doc_id",
+    "part",
+    "level",
+    "topic",
+    "actors"
+  ],
+  "hybrid_search": {
+    "sparse": "bm25",
+    "dense": "bge-m3",
+    "fusion": "rrf"
+  },
+  "note": "ISPS_CODE_2002와 IMO_GUIDEBOOK_2026이 doc_id로 구분되어 동일 컬렉션에 공존"
+}

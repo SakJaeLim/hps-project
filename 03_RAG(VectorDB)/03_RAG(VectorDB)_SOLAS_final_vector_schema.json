@@ -1,0 +1,69 @@
+{
+  "collection": "portslm_solas_1998",
+  "embedding_model": "BAAI/bge-m3",
+  "dim": 1024,
+  "distance": "cosine",
+  "index": {
+    "type": "hnsw",
+    "m": 16,
+    "ef_construction": 200
+  },
+  "normalize_embeddings": true,
+  "field_map": {
+    "id": "chunk_id",
+    "document": "text",
+    "embedding_input_template": "{title}\n{text}",
+    "metadata_fields": [
+      "doc_id",
+      "source",
+      "standard",
+      "chunk_type",
+      "title",
+      "chapter",
+      "amendment_year",
+      "eif_date",
+      "trigger_event",
+      "page",
+      "port_relevance",
+      "domain_tags",
+      "lang"
+    ]
+  },
+  "retrieval_defaults": {
+    "top_k": 6,
+    "score_threshold": 0.35,
+    "hybrid": {
+      "enable": true,
+      "bm25_field": "text",
+      "alpha": 0.5
+    }
+  },
+  "filter_examples": [
+    {
+      "name": "항만 적재 고관련 규정만",
+      "where": {
+        "port_relevance": "high"
+      }
+    },
+    {
+      "name": "특정 章",
+      "where": {
+        "chapter": "VI"
+      }
+    },
+    {
+      "name": "복원성 관련",
+      "where": {
+        "domain_tags": {
+          "$contains": "stability"
+        }
+      }
+    },
+    {
+      "name": "개정 이력만",
+      "where": {
+        "chunk_type": "amendment"
+      }
+    }
+  ]
+}

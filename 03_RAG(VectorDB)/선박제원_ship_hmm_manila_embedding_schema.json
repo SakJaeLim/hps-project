@@ -1,0 +1,29 @@
+{
+  "collection": "portslm_regulatory",
+  "embedding_model": "BGE-M3",
+  "dim": 1024,
+  "distance": "cosine",
+  "hybrid": {
+    "dense": true,
+    "sparse_bm25": true,
+    "fusion": "RRF"
+  },
+  "payload_fields": [
+    "chunk_id",
+    "doc_id",
+    "doc_title",
+    "vessel_name",
+    "imo_no",
+    "category",
+    "category_title",
+    "lang",
+    "citation"
+  ],
+  "filterable": [
+    "doc_id",
+    "imo_no",
+    "category",
+    "lang"
+  ],
+  "note": "MV HMM MANILA Ship Particulars: 정형 선박 제원. doc_id='ship_hmm_manila', imo_no 필터로 선박별 검색. 구조화 spec은 RDB/Vessel Define 조인용."
+}

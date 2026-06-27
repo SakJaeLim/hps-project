@@ -1,0 +1,66 @@
+{
+  "collection": "portslm_coprar_v23",
+  "embedding_model": "BAAI/bge-m3",
+  "dim": 1024,
+  "distance": "cosine",
+  "index": {
+    "type": "hnsw",
+    "m": 16,
+    "ef_construction": 200
+  },
+  "normalize_embeddings": true,
+  "field_map": {
+    "id": "chunk_id",
+    "document": "text",
+    "embedding_input_template": "{title}\n{text}",
+    "metadata_fields": [
+      "doc_id",
+      "source",
+      "standard",
+      "chunk_type",
+      "title",
+      "segment_id",
+      "segment_group",
+      "hierarchy_level",
+      "usage_indicator",
+      "page",
+      "element_codes",
+      "qualifiers",
+      "domain_tags",
+      "lang"
+    ]
+  },
+  "retrieval_defaults": {
+    "top_k": 6,
+    "score_threshold": 0.35,
+    "hybrid": {
+      "enable": true,
+      "bm25_field": "text",
+      "alpha": 0.5
+    }
+  },
+  "filter_examples": [
+    {
+      "name": "위험물 규정만",
+      "where": {
+        "domain_tags": {
+          "$contains": "dangerous-goods"
+        }
+      }
+    },
+    {
+      "name": "Reefer 온도 규정",
+      "where": {
+        "domain_tags": {
+          "$contains": "reefer"
+        }
+      }
+    },
+    {
+      "name": "특정 세그먼트",
+      "where": {
+        "segment_id": "EQD"
+      }
+    }
+  ]
+}
