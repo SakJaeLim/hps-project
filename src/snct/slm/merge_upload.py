@@ -50,6 +50,38 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
     merged_model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
+    
+    # 3. model.safetensors.index.json 맵핑 파일 강제 보정 (lm_head 누락 버그 해결)
+    index_file = os.path.join(output_dir, "model.safetensors.index.json")
+    if os.path.exists(index_file):
+        try:
+            import json
+            with open(index_file, "r", encoding="utf-8") as f_idx:
+                index_data = json.load(f_idx)
+            
+            weight_map = index_data.get("weight_map", {})
+            if "lm_head.weight" not in weight_map:
+                print("   🛠️ model.safetensors.index.json 내 lm_head.weight 누락 발견. 인덱스 보정 작업을 실행합니다.")
+                # safetensors 파일 조각 목록 중 마지막 조각에 lm_head.weight 강제 매핑
+                safetensors_files = sorted([sf for sf in os.listdir(output_dir) if sf.endswith(".safetensors")])
+                if safetensors_files:
+                    target_sf_file = safetensors_files[-1]
+                    weight_map["lm_head.weight"] = target_sf_file
+                    index_data["weight_map"] = weight_map
+                    with open(index_file, "w", encoding="utf-8") as f_idx:
+                        json.dump(index_data, f_idx, indent=2)
+                    print(f"   ✔ lm_head.weight ➔ {target_sf_file} 맵핑 강제 보정 완료!")
+                else:
+                    # 단일 safetensors 파일인 경우
+                    if os.path.exists(os.path.join(output_dir, "model.safetensors")):
+                        weight_map["lm_head.weight"] = "model.safetensors"
+                        index_data["weight_map"] = weight_map
+                        with open(index_file, "w", encoding="utf-8") as f_idx:
+                            json.dump(index_data, f_idx, indent=2)
+                        print("   ✔ lm_head.weight ➔ model.safetensors 맵핑 완료!")
+        except Exception as idx_err:
+            print(f"   ⚠️ model.safetensors.index.json 인덱스 보정 중 예외 발생: {idx_err}")
+
     print("Merge complete.")
     
     if upload_repo:
