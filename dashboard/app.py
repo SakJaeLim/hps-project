@@ -701,18 +701,6 @@ elif page == "평가 대시보드":
         </div>
         """, unsafe_allow_html=True)
         
-    st.markdown("### 4. 샘플별 상세 비교 테이블")
-    if metrics and "samples" in metrics and metrics["samples"]:
-        sample_list = []
-        for s in metrics["samples"]:
-            sample_list.append({
-                "질문": s["question"],
-                "베이스 모델 답변": s["base"],
-                "PortSLM 답변": s["ft"],
-                "개선도 (ROUGE-L 차이)": s["score_gap"]
-            })
-        sample_df = pd.DataFrame(sample_list)
-    else:
     st.markdown("### 4. 골든셋 샘플별 3종 모델 상세 비교")
     sample_df = pd.DataFrame([
         {"질문": "DG 컨테이너 적재 가능 Bay는?", "Base (Qwen2.5)": "제약 정보 없음 (1.5점)", "PortSLM v1": "IMDG 조항 약식 인용 (4.5점)", "PortSLM v2": "IMDG 격리거리 공식 매핑 (5.0점)"},
