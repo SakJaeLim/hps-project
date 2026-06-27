@@ -45,12 +45,14 @@ export PYTHONUTF8=1
 if [ "$USE_VENV" = true ]; then
     .venv/bin/pip install --upgrade pip
     .venv/bin/pip install -r requirements.txt
+    .venv/bin/pip install torchvision --no-cache-dir
     PIP_CMD=".venv/bin/pip"
     UVICORN_CMD=".venv/bin/uvicorn"
     STREAMLIT_CMD=".venv/bin/streamlit"
 else
     pip3 install --upgrade pip
     pip3 install -r requirements.txt
+    pip3 install torchvision --no-cache-dir
     PIP_CMD="pip3"
     UVICORN_CMD="python3 -m uvicorn"
     STREAMLIT_CMD="python3 -m streamlit"

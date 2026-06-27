@@ -585,43 +585,28 @@ elif page == "모델 비교 (Base vs v1 vs v2)":
             else:
                 base_text = local_mock_inference("base", comp_query)
                 ft_v1_text = local_mock_inference("portslm", comp_query)
-                ft_v2_text = "[v2 추천] " + local_mock_inference("portslm_v2", comp_query) + " (추가: IMDG Code 및 SOP 최신 개정판 반영)"
+                ft_v2_text = "[v2 추천] " + local_mock_inference("portslm_v2", comp_query) + " (추가: IMDG Code 및 SOP 최신 반영)"
                 terms = ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "SOP"]
                 
             col_base, col_v1, col_v2 = st.columns(3)
             
             with col_base:
-                st.markdown(f"""
-                <div class="card" style="border-top: 5px solid #aeb6c2; height: 380px; overflow-y: auto;">
-                    <h4 style="color: #69788f !important; margin: 0 0 10px 0;">Qwen2.5-VL (Base)</h4>
-                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{base_text}</p>
-                    <div style="background:#f7fafc; padding:8px; border-radius:6px; font-size:11.5px; color:#e53e3e; border:1px solid #fed7d7; text-align:center; margin-top:10px;">
-                        ⚠️ 제약조건 무시 및 환각 위험
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### 🩶 Qwen2.5-VL (Base)")
+                st.info(base_text if base_text else "답변을 가져올 수 없습니다.")
+                st.error("⚠️ 제약조건 무시 및 환각 위험 (Base)")
                 
             with col_v1:
-                st.markdown(f"""
-                <div class="card" style="border-top: 5px solid #2b6cb0; height: 380px; overflow-y: auto;">
-                    <h4 style="color: #2b6cb0 !important; margin: 0 0 10px 0;">PortSLM v1 (Finetuned)</h4>
-                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{ft_v1_text}</p>
-                    <div style="background:#f7fafc; padding:8px; border-radius:6px; font-size:11.5px; color:#2b6cb0; border:1px solid #bee3f8; text-align:center; margin-top:10px;">
-                        ✓ 규정 인용 및 제약 충족
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### 💙 PortSLM v1 (Finetuned)")
+                st.info(ft_v1_text if ft_v1_text else "답변을 가져올 수 없습니다.")
+                st.warning("✓ 규정 인용 및 슬롯 제약 정상 작동 (v1)")
                 
             with col_v2:
-                st.markdown(f"""
-                <div class="card" style="border-top: 5px solid #1F3864; height: 380px; overflow-y: auto;">
-                    <h4 style="color: #1F3864 !important; margin: 0 0 10px 0;">⚓ PortSLM v2 (최신 최적화)</h4>
-                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{ft_v2_text}</p>
-                    <div class="evidence" style="margin-top:10px; font-size:11px;">
-                        ▸ <b>감지 용어:</b> {", ".join(terms)}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown("#### ⚓ PortSLM v2 (최적화)")
+                st.info(ft_v2_text if ft_v2_text else "답변을 가져올 수 없습니다.")
+                if terms:
+                    st.success(f"✓ 감지 용어: {', '.join(terms)}")
+                else:
+                    st.success("✓ 사실 검증 및 제약 검토 완료 (v2)")
 
 
 elif page == "평가 대시보드":

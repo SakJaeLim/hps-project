@@ -111,7 +111,15 @@ def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens
                     device_map="auto",
                     local_files_only=True,
                 )
-                processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
+                try:
+                    processor = AutoProcessor.from_pretrained(model_path, local_files_only=True)
+                except Exception as proc_err:
+                    print(f"[local inference] Preprocessor load failed from {model_path}, fallback to Qwen base model processor. Err: {proc_err}")
+                    base_path = _find_local_model_path("Qwen/Qwen2.5-VL-3B-Instruct")
+                    if base_path:
+                        processor = AutoProcessor.from_pretrained(base_path, local_files_only=True)
+                    else:
+                        raise proc_err
                 _local_model_cache[cache_key] = (model, processor, True)
             else:
                 from transformers import AutoModelForCausalLM
