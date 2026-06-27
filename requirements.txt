@@ -17,6 +17,13 @@ sqlalchemy
 requests
 rouge
 
+# --- Orchestrator / Vector / Graph (Track 1.5) ---
+langgraph>=0.2
+chromadb>=0.5
+FlagEmbedding>=1.2        # BGE-M3 임베딩
+neo4j>=5.20              # graphrag 실연결 시
+psycopg2-binary>=2.9     # nl2sql(Neon) 실연결 시
+
 # --- Serving / API / UI ---
 fastapi
 uvicorn
