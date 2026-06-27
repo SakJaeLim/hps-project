@@ -30,8 +30,8 @@ if [ -d ".venv" ]; then
 fi
 
 if [ ! -d ".venv" ]; then
-    echo -e "\n[3/5] Creating new virtual environment (.venv)..."
-    python3 -m venv .venv 2>/dev/null
+    echo -e "\n[3/5] Creating new virtual environment (.venv with system site packages)..."
+    python3 -m venv --system-site-packages .venv 2>/dev/null
     if [ $? -ne 0 ]; then
         echo "WARNING: python3 -m venv failed (possibly missing python3-venv package)."
         echo "Falling back to System Python Environment..."
