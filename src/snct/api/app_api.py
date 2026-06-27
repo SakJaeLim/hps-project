@@ -8,6 +8,14 @@ import statistics
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+# .env 환경 변수 파일 로드 (FastAPI 프로세스용)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(pathlib.Path(__file__).resolve().parents[3] / ".env")
+    print(f"🔑 [.env Load Success] HF_TOKEN Detected: {bool(os.environ.get('HF_TOKEN'))}")
+except Exception as dotenv_err:
+    print(f"⚠️ [.env Load Fail] {dotenv_err}")
+
 # src/ 패키지 검색 경로 등록
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
 
