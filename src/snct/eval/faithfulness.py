@@ -57,11 +57,24 @@ def score_decision(decision: RLDecision, text: str | None = None, lpg=None) -> d
     lpg 제공 시 LPG 규정 인용까지 포함한 설명을 생성·채점한다."""
     if text is None:
         text = "\n".join(explain_rl_decision(decision, lpg=lpg))
+    
+    print("\n" + "-"*50)
+    print(f"🔍 [xAI 자기검증 실행] — Faithfulness Score Calculation")
+    print(f"  └─ 대상 의사결정: Policy={decision.policy}, Round={decision.round_id}")
+    
     allowed = source_values(decision, lpg=lpg)
     numbers = extract_numbers(text)
     unsupported = [n for n in numbers if not _is_supported(n, allowed)]
     n_total = len(numbers)
     faithfulness = 1.0 if n_total == 0 else 1.0 - len(unsupported) / n_total
+    
+    print(f"  └─ 본문에 추출된 수치 토큰 수: {n_total}개")
+    print(f"  └─ 불일치(Unsupported/환각) 수치 수: {len(unsupported)}개")
+    if unsupported:
+        print(f"  🚨 불일치 감지 토큰: {unsupported}")
+    print(f"  🎯 최종 Faithfulness Score: {faithfulness * 100.0:.1f}%")
+    print("-"*50 + "\n")
+    
     return {
         "policy": decision.policy,
         "round_id": decision.round_id,

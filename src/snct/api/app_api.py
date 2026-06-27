@@ -353,6 +353,13 @@ def plan_endpoint(req: PlanRequest):
 def explain_endpoint(req: ExplainRequest) -> dict:
     """설명가능 RL 흐름: 질의 → 근거수집(RDB·LPG) → 설명 융합 → faithfulness 자기검증."""
     start_time = time.time()
+    print("\n" + "⚡"*30)
+    print(f"📥 [API Request] /explain 호출 수신")
+    print(f"  ├─ Question: {req.question}")
+    print(f"  ├─ Target Policy: {req.policy}")
+    print(f"  ├─ Target Round: {req.round_id}")
+    print(f"  └─ With LPG: {req.with_lpg}")
+    
     try:
         from snct.agents.graph import run_explanation
         rec = run_explanation(
@@ -361,12 +368,20 @@ def explain_endpoint(req: ExplainRequest) -> dict:
             round_id=req.round_id,
             with_lpg=req.with_lpg,
         )
+        latency = int((time.time() - start_time) * 1000)
+        
+        print("📤 [API Response] /explain 성공 반환")
+        print(f"  ├─ Latency: {latency}ms")
+        print(f"  └─ Checks: {rec.checks}")
+        print("⚡"*30 + "\n")
+        
         return {
             "rationale": rec.rationale,
             "checks": rec.checks,
-            "latency_ms": int((time.time() - start_time) * 1000),
+            "latency_ms": latency,
         }
     except Exception as e:
+        print(f"❌ [API Error] /explain 호출 실패: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

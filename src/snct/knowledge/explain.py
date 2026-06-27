@@ -91,25 +91,31 @@ def explain(
     decision: RLDecision | None = None,
     lpg=None,
 ) -> str:
-    """Synthesize an explainable rationale from plan, violations, and evidence.
-    evidence = router가 모은 [{type:doc|sql|graph, ref, snippet}]. → rationale 문자열.
-    decision(선택) = RL 의사결정 근거(reward_decomp·kpi·doc_refs 융합, specs/07 xAI-RL).
-    lpg(선택) = LPGGraph. decision과 함께 주면 컨테이너별 위반 규정을 인용."""
+    """Synthesize an explainable rationale from plan, violations, and evidence."""
+    print("\n" + "="*60)
+    print("🔮 [xAI 설명 합성 엔진 기동] — Rationale Synthesis Start")
+    print("="*60)
 
     parts = []
 
-    # 0. RL 의사결정 설명(있으면 최상단) — 사실 귀인 우선
+    # 0. RL 의사결정 설명(있으면 최상단)
     if decision is not None:
+        print(f"[xAI:RDB] 의사결정 팩트 로드 완료 (Policy: {decision.policy}, Round: {decision.round_id})")
+        print(f"  └─ 보상 총합: {decision.reward_total:.4f}")
+        print(f"  └─ 수집된 KPI 항목 수: {len(decision.kpi)}")
+        print(f"  └─ 위반 로그 집계 수: {len(decision.violations)}건")
+        
         parts.extend(explain_rl_decision(decision, lpg=lpg))
-        # live plan 배정이 없으면 RL 설명만으로 자기완결 — 제네릭 계획/결론 섹션(빈 plan 기준)은
-        # 모순(예: decision 위반 8건 vs "위반 없음")을 만들므로 생략한다.
         if not plan.assignments:
+            print("[xAI] RL Rationale 마크다운 조립 완료.")
             return "\n".join(parts)
         parts.append("")
 
     # 1. Plan summary
     n_assigned = len(plan.assignments)
     engine = plan.engine or "unknown"
+    print(f"[xAI:Plan] 적재 계획 수립 요약 수집 (엔진: {engine}, 배정 건수: {n_assigned}건)")
+    
     parts.append(f"## 적재 계획 요약 (엔진: {engine})")
     parts.append(f"- 배정 완료: {n_assigned}건")
     if plan.objective:
@@ -119,13 +125,14 @@ def explain(
     # 2. Assignment details
     if plan.assignments:
         parts.append("\n### 슬롯 배정 상세")
-        for a in plan.assignments[:10]:  # Limit display
+        for a in plan.assignments[:10]:
             parts.append(f"  • {a.container_id} → BAY{a.bay:02d}-ROW{a.row:02d}-TIER{a.tier:02d}")
 
     # 3. Constraint validation results
     if violations:
         errors = [v for v in violations if v.severity == "error"]
         warnings = [v for v in violations if v.severity == "warning"]
+        print(f"[xAI:Validation] 제약 위반 감지: Error {len(errors)}건 / Warning {len(warnings)}건")
 
         parts.append(f"\n### 제약 검증 결과")
         parts.append(f"- ❌ 위반(Error): {len(errors)}건")
@@ -136,11 +143,13 @@ def explain(
         for v in warnings[:5]:
             parts.append(f"  ⚠️ [{v.rule}] {v.container_id}: {v.detail}")
     else:
+        print("[xAI:Validation] ✅ 모든 제약 조건 통과 (위반 사항 없음)")
         parts.append("\n### 제약 검증 결과")
         parts.append("- ✅ 모든 제약 조건 충족 — 위반 없음")
 
-    # 4. Evidence citations
+    # 4. Evidence citations (RAG)
     if evidence:
+        print(f"[xAI:RAG] ChromaDB 시맨틱 검색 근거 매핑 시작 (총 {len(evidence)}개 문서 파드)")
         parts.append("\n### 근거 인용")
         seen_refs = set()
         for ev in evidence:
@@ -150,6 +159,7 @@ def explain(
             seen_refs.add(ref)
             ev_type = ev.get("type", "unknown")
             snippet = ev.get("snippet", "")
+            print(f"  └─ 인용 근거 [{ev_type.upper()}]: {ref} | 스니펫 일부: {snippet[:60]}...")
             if isinstance(snippet, str) and snippet:
                 parts.append(f"  📎 [{ev_type.upper()}:{ref}] {snippet[:150]}")
             elif isinstance(snippet, list):
@@ -166,4 +176,6 @@ def explain(
     else:
         parts.append("✅ 모든 제약 조건을 충족하는 최적 적재 계획이 수립되었습니다.")
 
+    print("[xAI] 융합 설명서 조립 성공.")
+    print("="*60 + "\n")
     return "\n".join(parts)
