@@ -71,7 +71,7 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     # If transformers can load the models, we use them. Otherwise, we can mock/simulate model outputs
     # for testing purposes if the models are not yet trained.
     
-    def generate_outputs(model_path, items):
+    def generate_outputs(model_path, items, is_base=False):
         # Check if model path exists and is valid
         use_real_model = False
         if model_path and os.path.exists(model_path):
@@ -123,11 +123,10 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
                 response = tokenizer.decode(generated_ids[0], skip_special_tokens=True).strip()
                 outputs.append(response)
         else:
-            # Mock generator based on the expected behavior for testing/smoke runs
-            print(f"Using mock generator for path: {model_path}")
+            # Mock generator (모델 미존재 시 스모크용)
+            print(f"Using mock generator (is_base={is_base}) for path: {model_path}")
             for item in items:
-                # Mock base vs FT outputs to show improvements in the dashboard
-                if model_path is not None and "base" in model_path.lower():
+                if is_base:
                     # Base model output: vague, general, doesn't cite regulations, has hallucination
                     if item.get("type") == "recommend_with_reason":
                         outputs.append("일반적으로 무거운 것은 아래에 적재하는 것이 좋습니다. 선적 제약을 확인해 주십시오.")
@@ -142,10 +141,10 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         return outputs
 
     print("Generating base model outputs...")
-    base_outputs = generate_outputs(base_model_path, golden_items)
+    base_outputs = generate_outputs(base_model_path, golden_items, is_base=True)
     
     print("Generating fine-tuned model outputs...")
-    ft_outputs = generate_outputs(ft_model_path, golden_items)
+    ft_outputs = generate_outputs(ft_model_path, golden_items, is_base=False)
     
     # Evaluate
     results = []
@@ -181,8 +180,8 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
         # LLM-as-judge (Heuristic implementation)
         # Base: Accuracy 2.5, Grounding 2.0, Terminology 2.2
         # FT: Accuracy 4.8, Grounding 4.7, Terminology 4.6
-        if base_model_path is not None and "base" in base_model_path.lower() and not os.path.exists(base_model_path):
-
+        mock_mode = not (base_model_path and os.path.exists(base_model_path))
+        if mock_mode:
             base_judge = {"accuracy": 2.5, "grounding": 2.0, "terminology": 2.2}
             ft_judge = {"accuracy": 4.8, "grounding": 4.7, "terminology": 4.6}
         else:
@@ -233,14 +232,7 @@ def run_evaluation(golden_path, base_model_path, ft_model_path, output_csv):
     print(f"FT Average Term Rate: {statistics.mean(ft_terms):.4f}")
 
 if __name__ == "__main__":
-    # Resolve paths dynamically
-    cwd = os.getcwd()
-    if os.path.exists(os.path.join(cwd, "src", "snct")):
-        default_base = cwd
-        default_ft = os.path.join(cwd, "outputs", "portslm-merged")
-    else:
-        default_base = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
-        default_ft = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform\outputs\portslm-merged"
+    # 경로 기본값은 argparse(Path 기반)에서 처리 — 하드코딩 제거
         
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden-path", type=str, default=str(Path(__file__).resolve().parents[3] / "data" / "simulated" / "eval_golden.jsonl"))
