@@ -33,3 +33,4 @@ container terminal sql agent/
 
 # OS
 .DS_Store
+*.log
