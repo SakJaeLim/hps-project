@@ -29,9 +29,20 @@ echo "======================================================================"
 echo "🚀 [PortSLM Workspace Pipeline] 파이프라인 가동 시작..."
 echo "======================================================================"
 
-# 1. 필요 라이브러리 검사 및 설치
-echo "[STEP 1/5] 필수 라이브러리 의존성 설치 확인 중..."
+# 1. 학습 전용 가상환경(.venv_train) 생성 및 활성화
+echo "[STEP 1/5] 학습/VectorDB 전용 독립 가상환경(.venv_train) 검사 및 활성화..."
+VENV_DIR=".venv_train"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "   -> 가상환경 $VENV_DIR 이 존재하지 않습니다. 새로 생성합니다..."
+    python3 -m venv $VENV_DIR
+fi
+
+# 가상환경 활성화 및 pip 최신화
+source $VENV_DIR/bin/activate
 pip install --upgrade pip
+
+# 학습 및 VectorDB 격리 의존성 설치
+echo "   -> 가상환경 내 격리 패키지 설치 중 (transformers, trl, peft, chromadb 등)..."
 pip install "transformers==4.45.2" "trl==0.11.0" "peft==0.12.0" datasets accelerate bitsandbytes qwen-vl-utils wandb python-docx pymupdf openpyxl chromadb sentence-transformers
 
 # 2. SFT 데이터 전처리 실행 (ChatML 통합 & 분할)
@@ -72,6 +83,9 @@ python src/snct/slm/merge_upload.py \
   --output-dir "/workspace/output/portslm-merged" \
   --upload-repo "AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2" \
   --hf-token "$HF_TOKEN"
+
+# 가상환경 비활성화하여 글로벌 환경 복귀
+deactivate
 
 echo -e "\n======================================================================"
 echo "🎉 [SUCCESS] 모든 전처리, VectorDB 구축, 학습, v2 업로드가 성공적으로 완료되었습니다!"
