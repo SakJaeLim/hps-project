@@ -1,3 +1,4 @@
+# DEPRECATED: orchestrator.py(LangGraph)로 대체됨. 호환을 위해 남겨두며 다음 PR에서 제거 예정.
 """지식 접근 라우터 — 질문을 doc/sql/graph 경로로 라우팅하고 근거를 모은다. specs/07."""
 from enum import Enum
 
