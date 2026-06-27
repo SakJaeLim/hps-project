@@ -86,7 +86,25 @@ class RLResultStore:
         raise FileNotFoundError(f"산출물 폴더 없음: {self.base_dir}/{pattern}")
 
     # ── 로딩 ────────────────────────────────────────────────
-    def _load(self, rel: str) -> pd.DataFrame:
+    def _load(self, rel: str, policy: str | None = None, round_id: int | None = None) -> pd.DataFrame:
+        # Neon DB 연동 시도
+        try:
+            from snct.common.neon_adapter import NeonAdapter
+            neon = NeonAdapter()
+            if neon.is_available():
+                table_name = rel.replace(".csv", "")
+                df = neon.query_table(table_name, policy=policy, round_id=round_id)
+                if df is not None and not df.empty:
+                    # 데이터 타입 통일화 보완
+                    if "policy" in df.columns:
+                        df["policy"] = df["policy"].astype(str)
+                    if "round_id" in df.columns:
+                        df["round_id"] = pd.to_numeric(df["round_id"], errors="coerce").astype("Int64")
+                    return df
+        except Exception as e:
+            print(f"[Neon Adapter Fallback to CSV] : {e}")
+
+        # 로컬 CSV 폴백
         df = _read_csv(self.rdb_dir / rel)
         if "policy" in df.columns:
             df["policy"] = df["policy"].astype(str)
@@ -94,17 +112,17 @@ class RLResultStore:
             df["round_id"] = pd.to_numeric(df["round_id"], errors="coerce").astype("Int64")
         return df
 
-    def load_reward_decomp(self) -> pd.DataFrame:
-        return self._load("reward_decomp.csv")
+    def load_reward_decomp(self, policy: str | None = None, round_id: int | None = None) -> pd.DataFrame:
+        return self._load("reward_decomp.csv", policy=policy, round_id=round_id)
 
-    def load_kpi(self) -> pd.DataFrame:
-        return self._load("kpi.csv")
+    def load_kpi(self, policy: str | None = None, round_id: int | None = None) -> pd.DataFrame:
+        return self._load("kpi.csv", policy=policy, round_id=round_id)
 
-    def load_slot_assignment(self) -> pd.DataFrame:
-        return self._load("slot_assignment.csv")
+    def load_slot_assignment(self, policy: str | None = None, round_id: int | None = None) -> pd.DataFrame:
+        return self._load("slot_assignment.csv", policy=policy, round_id=round_id)
 
-    def load_violation_log(self) -> pd.DataFrame:
-        return self._load("violation_log.csv")
+    def load_violation_log(self, policy: str | None = None, round_id: int | None = None) -> pd.DataFrame:
+        return self._load("violation_log.csv", policy=policy, round_id=round_id)
 
     def load_xai_grounding(self) -> list[dict]:
         with open(self.rag_dir / "xai_grounding.json", encoding="utf-8") as f:
@@ -114,7 +132,7 @@ class RLResultStore:
     def get_decision(self, policy: str, round_id: int) -> RLDecision:
         """(policy, round_id) 의사결정 근거를 융합해 RLDecision으로 반환.
         존재하지 않으면 KeyError."""
-        rd = self.load_reward_decomp()
+        rd = self.load_reward_decomp(policy=policy, round_id=round_id)
         row = rd[(rd["policy"] == str(policy)) & (rd["round_id"] == int(round_id))]
         if row.empty:
             raise KeyError(f"의사결정 없음: policy={policy}, round_id={round_id}")
@@ -130,7 +148,7 @@ class RLResultStore:
         contribs.sort(key=lambda kv: abs(kv[1]), reverse=True)
 
         # KPI
-        kpi_df = self.load_kpi()
+        kpi_df = self.load_kpi(policy=policy, round_id=round_id)
         krow = kpi_df[(kpi_df["policy"] == str(policy)) & (kpi_df["round_id"] == int(round_id))]
         kpi = {} if krow.empty else {
             k: (float(v) if pd.notna(v) else None)
@@ -139,7 +157,7 @@ class RLResultStore:
         }
 
         # 위반 로그
-        vl = self.load_violation_log()
+        vl = self.load_violation_log(policy=policy, round_id=round_id)
         vrows = vl[(vl["policy"] == str(policy)) & (vl["round_id"] == int(round_id))]
         violations = vrows.to_dict("records")
 
