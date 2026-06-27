@@ -14,6 +14,17 @@ set -e
 # 모듈 경로 추가
 export PYTHONPATH=$(pwd)/src
 
+# .env 파일이 존재하는 경우 HF_TOKEN 환경변수 로딩
+if [ -f ".env" ]; then
+    echo "🔑 .env 파일 감지됨. 환경변수를 로드합니다."
+    # .env 파일에서 HF_TOKEN 값 추출 및 export (공백 제거 처리)
+    ENV_HF_TOKEN=$(grep -E "^HF_TOKEN=" .env | cut -d'=' -f2- | tr -d ' \r\n"')
+    if [ -n "$ENV_HF_TOKEN" ]; then
+        export HF_TOKEN="$ENV_HF_TOKEN"
+        echo "   -> HF_TOKEN이 .env로부터 성공적으로 주입되었습니다."
+    fi
+fi
+
 echo "======================================================================"
 echo "🚀 [PortSLM Workspace Pipeline] 파이프라인 가동 시작..."
 echo "======================================================================"
