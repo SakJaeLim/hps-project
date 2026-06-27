@@ -33,14 +33,23 @@ run:
       --out-dir "data/simulated" \
       --val-ratio 0.1
       
-    # 5. QLoRA SFT 학습 실행
+    # 5. RAG VectorDB(ChromaDB) 시맨틱 데이터 적재 실행
+    # (03_RAG(VectorDB) 아래의 규정 청크 파일들을 임베딩하여 로컬 data/chroma 폴더에 영속 저장합니다)
+    echo "📥 [VectorDB] 03_RAG(VectorDB) 문서 청크 ChromaDB 적재 시작..."
+    python -m snct.knowledge.ingest_to_chroma \
+      --sft-dir "03_RAG(VectorDB)" \
+      --db-dir "data/chroma" \
+      --collection "hps_docs" \
+      --model "jhgan/ko-sroberta-multitask"
+      
+    # 6. QLoRA SFT 학습 실행
     python src/snct/slm/finetune.py \
       --model-id "Qwen/Qwen2.5-VL-3B-Instruct" \
       --train-path "data/simulated/train.jsonl" \
       --val-path "data/simulated/val.jsonl" \
       --output-dir "/workspace/output/portslm-lora"
       
-    # 6. LoRA 어댑터 가중치 병합 및 Hugging Face v2 업로드
+    # 7. LoRA 어댑터 가중치 병합 및 Hugging Face v2 업로드
     python src/snct/slm/merge_upload.py \
       --base-model "Qwen/Qwen2.5-VL-3B-Instruct" \
       --adapter-path "/workspace/output/portslm-lora" \

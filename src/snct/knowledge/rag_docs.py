@@ -1,10 +1,23 @@
-"""문서 RAG (비정형) — 규정·SOP·사고보고서를 TF-IDF 임베딩으로 시맨틱 검색.
-외부 벡터DB 없이 scikit-learn TfidfVectorizer 기반 인메모리 검색."""
+"""문서 RAG (비정형) — 규정·SOP·사고보고서를 VectorDB(ChromaDB) 기반 시맨틱 검색.
+
+ChromaDB(/data/chroma) 컬렉션에 질의하여 코사인 유사도가 가장 높은 청크를 검색합니다.
+ChromaDB 로드 실패 시, 안전을 위해 기존 TF-IDF 인메모리 Fallback 검색이 동작합니다.
+"""
+import os
+import sys
+import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
-# 인메모리 문서 코퍼스 — 터미널 안전 규정 및 본선 플래닝 SOP
+# 윈도우 한글 유니코드 출력 대응
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except AttributeError:
+        pass
+
+# ─── 1. Fallback용 인메모리 문서 코퍼스 (기본 백업) ────────────────
 _CORPUS = [
     {
         "id": "SOP-001",
@@ -62,22 +75,21 @@ _CORPUS = [
     },
 ]
 
-# Build TF-IDF index on initialization
+# TF-IDF 백업 백엔드 준비
 _vectorizer = TfidfVectorizer()
 _corpus_texts = [f"{doc['title']} {doc['content']}" for doc in _CORPUS]
 _tfidf_matrix = _vectorizer.fit_transform(_corpus_texts)
 
 
-def retrieve(query: str, k: int = 4) -> list[dict]:
-    """Retrieve top-k most relevant SOP documents for the query.
-    → [{type:'doc', ref, snippet}]."""
+def _retrieve_fallback(query: str, k: int = 4) -> list[dict]:
+    """ChromaDB 연결 실패 시 실행될 TF-IDF 기반 백업 검색"""
     query_vec = _vectorizer.transform([query])
     similarities = cosine_similarity(query_vec, _tfidf_matrix).flatten()
     top_indices = np.argsort(similarities)[::-1][:k]
 
     results = []
     for idx in top_indices:
-        if similarities[idx] > 0.01:  # minimum relevance threshold
+        if similarities[idx] > 0.01:
             doc = _CORPUS[idx]
             results.append({
                 "type": "doc",
@@ -85,5 +97,98 @@ def retrieve(query: str, k: int = 4) -> list[dict]:
                 "title": doc["title"],
                 "snippet": doc["content"][:200],
                 "score": float(similarities[idx]),
+                "backend": "fallback_tfidf"
             })
     return results
+
+
+# ─── 2. ChromaDB 시맨틱 검색 엔진 연동 ───────────────────────
+CHROMA_PERSIST_DIR = os.environ.get("CHROMA_PERSIST_DIR", "data/chroma")
+CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "hps_docs")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL_NAME", "jhgan/ko-sroberta-multitask")
+
+_chroma_client = None
+_collection = None
+
+
+def _init_chromadb():
+    """ChromaDB 클라이언트 및 컬렉션 초기화"""
+    global _chroma_client, _collection
+    try:
+        import chromadb
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+        
+        db_path = os.path.abspath(CHROMA_PERSIST_DIR)
+        if not os.path.exists(db_path):
+            return False
+            
+        _chroma_client = chromadb.PersistentClient(path=db_path)
+        embed_fn = SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
+        
+        # 존재하는 컬렉션 확인
+        collections = [c.name for c in _chroma_client.list_collections()]
+        if CHROMA_COLLECTION not in collections:
+            return False
+            
+        _collection = _chroma_client.get_collection(
+            name=CHROMA_COLLECTION,
+            embedding_function=embed_fn
+        )
+        return True
+    except Exception as e:
+        print(f"[RAG Init Warning] ChromaDB 로드 실패 (Fallback 자동 우회): {e}")
+        return False
+
+
+# 초기화 시도
+_chroma_enabled = _init_chromadb()
+
+
+def retrieve(query: str, k: int = 4) -> list[dict]:
+    """VectorDB(Chroma)에서 유사 문서를 검색하며, 불가할 시 TF-IDF 백업 실행."""
+    global _chroma_enabled, _collection
+    
+    # 미설정 상태일 시 재시도
+    if not _chroma_enabled or _collection is None:
+        _chroma_enabled = _init_chromadb()
+        
+    if not _chroma_enabled or _collection is None:
+        return _retrieve_fallback(query, k)
+        
+    try:
+        # ChromaDB 시맨틱 쿼리 수행
+        results = _collection.query(
+            query_texts=[query],
+            n_results=k
+        )
+        
+        formatted = []
+        if not results or not results["documents"] or not results["documents"][0]:
+            return _retrieve_fallback(query, k)
+            
+        documents = results["documents"][0]
+        metadatas = results["metadatas"][0] if results["metadatas"] else [{}] * len(documents)
+        distances = results["distances"][0] if results["distances"] else [0.0] * len(documents)
+        ids = results["ids"][0]
+        
+        for idx in range(len(documents)):
+            # Cosine 거리를 코사인 유사도로 변환 (거리 0 = 유사도 1, 거리 2 = 유사도 -1)
+            dist = distances[idx]
+            sim_score = float(1.0 - dist)
+            
+            meta = metadatas[idx]
+            source = meta.get("source", "unknown")
+            
+            formatted.append({
+                "type": "doc",
+                "ref": ids[idx],
+                "title": source,
+                "snippet": documents[idx],
+                "score": sim_score,
+                "backend": "chromadb"
+            })
+            
+        return formatted
+    except Exception as e:
+        print(f"[RAG Error] ChromaDB 검색 에러 (Fallback 실행): {e}")
+        return _retrieve_fallback(query, k)
