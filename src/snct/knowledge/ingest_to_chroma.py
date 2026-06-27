@@ -32,8 +32,9 @@ def get_embedding_function(model_name="jhgan/ko-sroberta-multitask"):
         sys.exit(1)
 
 def parse_chunks_jsonl(file_path: Path) -> list[dict]:
-    """JSONL 청크 파일 파싱 및 스키마 정규화"""
+    """JSONL 청크 파일 파싱 및 스키마 정규화 (중복 청크 원천 스킵)"""
     chunks = []
+    seen_ids = set()
     file_name = file_path.name
     
     with open(file_path, "r", encoding="utf-8-sig") as f:
@@ -48,17 +49,23 @@ def parse_chunks_jsonl(file_path: Path) -> list[dict]:
                 if not text:
                     continue
                 
+                # 개별 문서 고유 ID 생성 (텍스트 해시값 활용으로 중복 적재 방지)
+                hash_id = hashlib.md5(text.encode("utf-8")).hexdigest()
+                chunk_id = f"chunk_{hash_id}"
+                
+                # 배치 내 중복 ID(완전 동일 문장) 방지
+                if chunk_id in seen_ids:
+                    continue
+                seen_ids.add(chunk_id)
+                
                 # 메타데이터 정리
                 metadata = {
                     "source": unicodedata.normalize("NFC", data.get("source", file_name)),
                     "file_name": unicodedata.normalize("NFC", file_name)
                 }
                 
-                # 개별 문서 고유 ID 생성 (텍스트 해시값 활용으로 중복 적재 방지)
-                hash_id = hashlib.md5(text.encode("utf-8")).hexdigest()
-                
                 chunks.append({
-                    "id": f"chunk_{hash_id}",
+                    "id": chunk_id,
                     "text": text,
                     "metadata": metadata
                 })
