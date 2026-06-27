@@ -23,11 +23,29 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     )
     
     print(f"Loading adapter from: {adapter_path}")
+    
+    # 1. PEFT 머지 버그 방지를 위해 Base 모델의 원래 lm_head 가중치를 딥카피 백업
+    import copy
+    try:
+        base_lm_head = copy.deepcopy(base.lm_head.state_dict())
+        print("✔ Base model lm_head.weight backup successful.")
+    except Exception as backup_err:
+        base_lm_head = None
+        print(f"⚠️ Failed to backup base lm_head: {backup_err}")
+
     model = PeftModel.from_pretrained(base, adapter_path)
     
     print("Merging weights...")
     merged_model = model.merge_and_unload()
     
+    # 2. 머지 완료 후, 유실된 lm_head 가중치를 백업본으로 강제 복원
+    if base_lm_head is not None:
+        try:
+            merged_model.lm_head.load_state_dict(base_lm_head)
+            print("✔ Restored lm_head.weight into merged model successfully!")
+        except Exception as restore_err:
+            print(f"⚠️ Failed to restore lm_head.weight: {restore_err}")
+            
     print(f"Saving merged model to: {output_dir}")
     tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
     merged_model.save_pretrained(output_dir)
