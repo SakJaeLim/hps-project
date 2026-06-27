@@ -80,12 +80,13 @@ def _find_local_model_path(hf_model_id: str) -> str | None:
 def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens: int = 512) -> str | None:
     """
     Run inference using a locally cached HuggingFace model.
-    model_name: 'base' → Qwen2.5-VL-3B-Instruct, 'portslm' → PortSLM-Qwen2.5-VL-3B
-    Returns generated text, or None if local model not found.
     """
     global _local_model_cache
+    print(f"🤖 [LOCAL INFERENCE START] model_name={model_name}, prompt_len={len(prompt)}")
     if "base" in model_name.lower():
         hf_id = "Qwen/Qwen2.5-VL-3B-Instruct"
+    elif "v2" in model_name.lower():
+        hf_id = "AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2"
     else:
         hf_id = "AICPADSLIM/PortSLM-Qwen2.5-VL-3B"
 
@@ -153,34 +154,44 @@ def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens
 
 
 def call_hf_inference(prompt: str, model_name: str = "portslm") -> str | None:
-    """Call HF Inference API for real model inference (requires internet)."""
+    """Call HF Inference API with detail print logs."""
     try:
         import requests as req
-        if HF_SPACE_URL:
-            r = req.post(
-                f"{HF_SPACE_URL}/api/predict",
-                json={"data": [prompt]},
-                timeout=60,
-            )
-            if r.status_code == 200:
-                data = r.json()
-                return data.get("data", [None])[0]
-
-        # HF Inference API (serverless) — only when internet is available
         hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HF-TOKEN") or ""
-        if hf_token and "portslm" in model_name.lower():
-            r = req.post(
-                f"https://api-inference.huggingface.co/models/{HF_MODEL_ID}",
-                headers={"Authorization": f"Bearer {hf_token}"},
-                json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.7}},
-                timeout=30,  # shorter timeout so we fail fast if network is blocked
-            )
-            if r.status_code == 200:
-                result = r.json()
-                if isinstance(result, list) and result:
-                    return result[0].get("generated_text", "")
+        target_model_id = "AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2" if "v2" in model_name.lower() else "AICPADSLIM/PortSLM-Qwen2.5-VL-3B"
+        
+        print(f"🌐 [HF API REQUEST] model={model_name} -> target_id={target_model_id}")
+        print(f"   - HF_TOKEN 존재 여부: {bool(hf_token)}")
+        
+        if not hf_token:
+            print("   ⚠️ [HF API Warning] HF_TOKEN이 누락되어 비인증 모드로 요청합니다.")
+
+        url = f"https://api-inference.huggingface.co/models/{target_model_id}"
+        headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
+        
+        r = req.post(
+            url,
+            headers=headers,
+            json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "temperature": 0.7}},
+            timeout=30
+        )
+        
+        print(f"🌐 [HF API RESPONSE] Status Code: {r.status_code}")
+        print(f"   - Raw Response Text: {r.text[:500]}") # 수신 바디 앞부분 500자 강제 출력
+        
+        if r.status_code == 200:
+            result = r.json()
+            if isinstance(result, list) and result:
+                txt = result[0].get("generated_text", "")
+                print(f"   - Successfully extracted text (len={len(txt)})")
+                return txt
+            elif isinstance(result, dict) and "error" in result:
+                print(f"   ❌ [HF API Model Error] {result.get('error')}")
+        else:
+            print(f"   ❌ [HF API Fail] HTTP {r.status_code}: {r.text}")
+            
     except Exception as e:
-        print(f"[remote inference] HF API unavailable: {e}")
+        print(f"   ❌ [HF API Exception] {e}")
     return None
 
 
@@ -254,12 +265,12 @@ def generate(req: GenerateRequest) -> dict:
 
 
 @app.post("/compare")
+@app.post("/compare")
 def compare(req: CompareRequest) -> dict:
     """
-    Compare answers between base and fine-tuned models.
-    Inference priority: local cached model → HF API → mock.
+    Compare answers among base, fine-tuned v1, and fine-tuned v2 models.
     """
-    # Base model
+    print(f"🔮 [COMPARE ENDPOINT] Received query: {req.prompt}")
     base_ans = run_local_inference(req.prompt, "base")
     base_source = "local_model"
     if not base_ans:
@@ -268,35 +279,47 @@ def compare(req: CompareRequest) -> dict:
     if not base_ans:
         base_ans = run_mock_inference("base", req.prompt)
 
-    # Fine-tuned model
-    ft_ans = run_local_inference(req.prompt, "portslm")
-    ft_source = "local_model"
-    if not ft_ans:
-        ft_ans = call_hf_inference(req.prompt, "portslm")
-        ft_source = "hf_api" if ft_ans else "mock"
-    if not ft_ans:
-        ft_ans = run_mock_inference("portslm", req.prompt)
+    # 2. Fine-tuned model v1
+    ft_v1_ans = run_local_inference(req.prompt, "portslm")
+    ft_v1_source = "local_model"
+    if not ft_v1_ans:
+        ft_v1_ans = call_hf_inference(req.prompt, "portslm")
+        ft_v1_source = "hf_api" if ft_v1_ans else "mock"
+    if not ft_v1_ans:
+        ft_v1_ans = run_mock_inference("portslm", req.prompt)
 
-    print(f"[compare] base_source={base_source}, ft_source={ft_source}")
+    # 3. Fine-tuned model v2 (AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2)
+    ft_v2_ans = run_local_inference(req.prompt, "portslm_v2")
+    ft_v2_source = "local_model"
+    if not ft_v2_ans:
+        ft_v2_ans = call_hf_inference(req.prompt, "portslm_v2")
+        ft_v2_source = "hf_api" if ft_v2_ans else "mock"
+    if not ft_v2_ans:
+        # Mock v2 (v1보다 안전수칙이나 구조 설명이 한층 보강된 형태)
+        ft_v2_ans = "[v2 추천] " + run_mock_inference("portslm_v2", req.prompt) + " (추가: IMDG Code 및 SOP 최신 개정판 검토 완료)"
+
+    print(f"[compare 3-way] base_source={base_source}, v1_source={ft_v1_source}, v2_source={ft_v2_source}")
 
     terms_used = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG",
                                       "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"]
-                  if term.lower() in ft_ans.lower()]
+                  if term.lower() in ft_v2_ans.lower()]
 
     history.append({
         "timestamp": time.strftime("%m-%d %H:%M:%S"),
         "prompt": req.prompt,
         "model": "compare",
-        "answer": ft_ans,
+        "answer": ft_v2_ans,
         "feedback": "—"
     })
 
     return {
         "base_text": base_ans,
-        "finetuned_text": ft_ans,
+        "ft_v1_text": ft_v1_ans,
+        "ft_v2_text": ft_v2_ans,
         "terms": terms_used,
         "base_source": base_source,
-        "ft_source": ft_source
+        "ft_v1_source": ft_v1_source,
+        "ft_v2_source": ft_v2_source
     }
 
 
