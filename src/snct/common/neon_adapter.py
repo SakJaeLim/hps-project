@@ -27,8 +27,13 @@ class NeonAdapter:
         if self._engine is None:
             if not self.db_url:
                 raise ValueError("DATABASE_URL 환경 변수가 선언되어 있지 않습니다.")
-            # psycopg2를 연동하도록 dialect 설정 보완
+            
+            # 오타 정화 (requirea -> require 자동 보정)
             conn_url = self.db_url
+            if "requirea" in conn_url:
+                conn_url = conn_url.replace("requirea", "require")
+                
+            # psycopg2를 연동하도록 dialect 설정 보완
             if conn_url.startswith("postgres://"):
                 conn_url = conn_url.replace("postgres://", "postgresql://", 1)
             self._engine = create_engine(conn_url, connect_args={"sslmode": "require"})
