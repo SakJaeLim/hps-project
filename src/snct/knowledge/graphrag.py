@@ -115,14 +115,21 @@ def ask(question: str) -> dict:
     if not NETWORKX_AVAILABLE:
         return {"answer": "네트워크 분석 라이브러리(NetworkX)가 없어 지식 그래프 검색을 생략합니다.", "sources": []}
 
-    # Try template matching
     q_lower = question.lower()
-    if "적재" in q_lower or "stacked" in q_lower:
-        # Extract container ID if present
-        sources = _keyword_search(question)
-    elif "재취급" in q_lower or "rehandling" in q_lower:
-        sources = _keyword_search(question)
-    else:
+    sources = []
+    # 규정 질의 → related_regulations 템플릿 실사용
+    if any(w in q_lower for w in ["규정", "regulation", "imdg", "solas", "격리"]):
+        for node_id, attrs in _KG.nodes(data=True):
+            if node_id.lower() in q_lower:
+                for r in TEMPLATES["related_regulations"](_KG, node_id):
+                    sources.append({
+                        "type": "graph",
+                        "ref": r["regulation"],
+                        "snippet": f"({r['relation']}) {node_id} → {r['regulation']}",
+                        "neighbors": [],
+                    })
+    # 폴백: 키워드 서브그래프 탐색
+    if not sources:
         sources = _keyword_search(question)
 
     if not sources:
