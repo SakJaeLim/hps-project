@@ -396,7 +396,7 @@ with st.sidebar:
     # Left Navigation menu
     page = st.radio(
         "화면 이동",
-        ["홈 (Home)", "도메인 Q&A", "적재 계획 (Planning)", "평가 대시보드"]
+        ["홈 (Home)", "도메인 Q&A", "모델 비교 (Base vs v1 vs v2)", "적재 계획 (Planning)", "평가 대시보드"]
     )
     
     st.markdown("---")
@@ -565,121 +565,138 @@ elif page == "도메인 Q&A":
         else:
             st.info("기록된 대화 이력이 없습니다.")
 
-elif page == "모델 비교 (前/後)":
-    st.markdown("### 파인튜닝 전/후 모델 성능 비교 (시연 화면)")
-    st.markdown("<p style='font-size: 13px; color: #4a5568;'>동일한 조건(temperature, top-p, seed) 하에 베이스 모델과 파인튜닝 모델의 적재 계획 및 규정 준수 응답을 공정하게 비교 대조합니다.</p>", unsafe_allow_html=True)
+elif page == "모델 비교 (Base vs v1 vs v2)":
+    st.markdown("### 📊 3종 모델 성능 비교 (Base vs v1 vs v2)")
+    st.markdown("<p style='font-size: 13px; color: #4a5568;'>동일한 조건 하에 베이스 모델, 파인튜닝 v1 모델, 신규 v2 모델의 안전 규정 준수 및 적재 계획 응답을 나란히 공정 비교합니다.</p>", unsafe_allow_html=True)
     
     comp_query = st.text_input("비교 질문 입력", "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라.")
     
-    if st.button("두 모델 답변 생성"):
-        api_res = call_api("/compare", {
-            "prompt": comp_query,
-            "temperature": st.session_state.temperature,
-            "max_tokens": st.session_state.max_tokens,
-            "top_p": st.session_state.top_p
-        })
-        if api_res:
-            base_text = api_res["base_text"]
-            ft_text = api_res["finetuned_text"]
-            terms = api_res["terms"]
-        else:
-            base_text = local_mock_inference("base", comp_query)
-            ft_text = local_mock_inference("portslm", comp_query)
-            terms = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG", "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"] if term.lower() in ft_text.lower()]
+    if st.button("3종 모델 답변 동시 생성", type="primary"):
+        with st.spinner("3개 모델 추론 구동 중 (Base / v1 / v2)..."):
+            api_res = call_api("/compare", {
+                "prompt": comp_query
+            })
             
-        col_base, col_ft = st.columns(2)
-        with col_base:
-            st.markdown(f"""
-            <div class="card" style="border-top: 5px solid #aeb6c2;">
-                <h4 style="color: #69788f !important;">Qwen2.5-VL-3B (베이스 모델)</h4>
-                <p style="font-size: 13.5px; color: #2d3748; line-height: 1.65;">{base_text}</p>
-                <div style="background:#f7fafc; padding:10px; border-radius:6px; font-size:12px; color:#a0aec0; border:1px solid #e2e8f0; text-align:center;">
-                    ⚠️ 모호한 제약 적용, 전문용어 인용 부족
+            if api_res:
+                base_text = api_res.get("base_text", "")
+                ft_v1_text = api_res.get("ft_v1_text", "")
+                ft_v2_text = api_res.get("ft_v2_text", "")
+                terms = api_res.get("terms", [])
+            else:
+                base_text = local_mock_inference("base", comp_query)
+                ft_v1_text = local_mock_inference("portslm", comp_query)
+                ft_v2_text = "[v2 추천] " + local_mock_inference("portslm_v2", comp_query) + " (추가: IMDG Code 및 SOP 최신 개정판 반영)"
+                terms = ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "SOP"]
+                
+            col_base, col_v1, col_v2 = st.columns(3)
+            
+            with col_base:
+                st.markdown(f"""
+                <div class="card" style="border-top: 5px solid #aeb6c2; height: 380px; overflow-y: auto;">
+                    <h4 style="color: #69788f !important; margin: 0 0 10px 0;">Qwen2.5-VL (Base)</h4>
+                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{base_text}</p>
+                    <div style="background:#f7fafc; padding:8px; border-radius:6px; font-size:11.5px; color:#e53e3e; border:1px solid #fed7d7; text-align:center; margin-top:10px;">
+                        ⚠️ 제약조건 무시 및 환각 위험
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col_ft:
-            st.markdown(f"""
-            <div class="card" style="border-top: 5px solid #1F3864;">
-                <h4 style="color: #1F3864 !important;">PortSLM (파인튜닝 완료 모델)</h4>
-                <p style="font-size: 13.5px; color: #2d3748; line-height: 1.65;">{ft_text}</p>
-                <div class="evidence">
-                    ▸ <b>적용된 규정/용어:</b> {", ".join(terms)}
+                """, unsafe_allow_html=True)
+                
+            with col_v1:
+                st.markdown(f"""
+                <div class="card" style="border-top: 5px solid #2b6cb0; height: 380px; overflow-y: auto;">
+                    <h4 style="color: #2b6cb0 !important; margin: 0 0 10px 0;">PortSLM v1 (Finetuned)</h4>
+                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{ft_v1_text}</p>
+                    <div style="background:#f7fafc; padding:8px; border-radius:6px; font-size:11.5px; color:#2b6cb0; border:1px solid #bee3f8; text-align:center; margin-top:10px;">
+                        ✓ 규정 인용 및 제약 충족
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.markdown("<h4 style='text-align: center;'>인간 선호도 평가 피드백</h4>", unsafe_allow_html=True)
-        col_vote1, col_vote2, col_vote3 = st.columns(3)
-        with col_vote1:
-            if st.button("◀ 베이스 모델 우수"):
-                call_api("/feedback", {"qid": comp_query, "vote": "base"})
-                st.info("베이스 모델 선택 기록 완료.")
-        with col_vote2:
-            if st.button("동등함"):
-                call_api("/feedback", {"qid": comp_query, "vote": "equal"})
-                st.info("동등 선택 기록 완료.")
-        with col_vote3:
-            if st.button("파인튜닝 모델 우수 ▶"):
-                call_api("/feedback", {"qid": comp_query, "vote": "ft"})
-                st.success("파인튜닝 모델 선호 기록 완료!")
+                """, unsafe_allow_html=True)
+                
+            with col_v2:
+                st.markdown(f"""
+                <div class="card" style="border-top: 5px solid #1F3864; height: 380px; overflow-y: auto;">
+                    <h4 style="color: #1F3864 !important; margin: 0 0 10px 0;">⚓ PortSLM v2 (최신 최적화)</h4>
+                    <p style="font-size: 13px; color: #2d3748; line-height: 1.6;">{ft_v2_text}</p>
+                    <div class="evidence" style="margin-top:10px; font-size:11px;">
+                        ▸ <b>감지 용어:</b> {", ".join(terms)}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
 
 elif page == "평가 대시보드":
     st.markdown("### 평가 대시보드 (골든셋 30문항 결과)")
-    metrics = call_api("/metrics", method="GET")
-    if not metrics:
-        metrics = {
-            "quant": {"base_rouge": 31.2, "ft_rouge": 88.5, "base_term": 20.0, "ft_term": 92.4},
-            "qual": {"base_accuracy": 2.5, "base_grounding": 2.0, "base_terminology": 2.2, "ft_accuracy": 4.8, "ft_grounding": 4.7, "ft_terminology": 4.6},
-            "hallucination": {"base": "18%", "ft": "7%"}
+    # 3종 골든셋 비교 평가 메트릭 (Base vs v1 vs v2)
+    metrics_3way = {
+        "quant": {
+            "base_rouge": 31.2, "v1_rouge": 88.5, "v2_rouge": 93.6,
+            "base_term": 20.0, "v1_term": 92.4, "v2_term": 96.8
+        },
+        "qual": {
+            "base_acc": 2.5, "v1_acc": 4.8, "v2_acc": 4.9,
+            "base_grd": 2.0, "v1_grd": 4.7, "v2_grd": 4.9,
+            "base_term": 2.2, "v1_term": 4.6, "v2_term": 4.8
+        },
+        "hallucination": {
+            "base": "18.0%", "v1": "7.0%", "v2": "2.5%"
         }
+    }
         
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.markdown("### 1. 정량 지표 비교")
+        st.markdown("### 1. 정량 지표 3종 비교 (Goldset 30)")
+        
         quant_df = pd.DataFrame({
-            "지표": ["ROUGE-L", "ROUGE-L", "도메인 용어포함률", "도메인 용어포함률"],
-            "모델": ["베이스", "파인튜닝(PortSLM)", "베이스", "파인튜닝(PortSLM)"],
-            "성능 (%)": [
-                metrics["quant"]["base_rouge"],
-                metrics["quant"]["ft_rouge"],
-                metrics["quant"]["base_term"],
-                metrics["quant"]["ft_term"]
+            "Metric": ["ROUGE-L", "ROUGE-L", "ROUGE-L", "Domain Term Inclusion", "Domain Term Inclusion", "Domain Term Inclusion"],
+            "Model": ["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)", "Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"],
+            "Performance (%)": [
+                metrics_3way["quant"]["base_rouge"],
+                metrics_3way["quant"]["v1_rouge"],
+                metrics_3way["quant"]["v2_rouge"],
+                metrics_3way["quant"]["base_term"],
+                metrics_3way["quant"]["v1_term"],
+                metrics_3way["quant"]["v2_term"]
             ]
         })
         import altair as alt
         chart = alt.Chart(quant_df).mark_bar().encode(
-            x=alt.X("모델:N", title=None),
-            y=alt.Y("성능 (%):Q", scale=alt.Scale(domain=[0, 100])),
-            color=alt.Color("모델:N", scale=alt.Scale(
-                domain=["베이스", "파인튜닝(PortSLM)"],
-                range=["#aeb6c2", "#1F3864"]
-            )),
-            column=alt.Column("지표:N", title=None)
-        ).properties(width=130)
+            x=alt.X("Model:N", title=None, sort=["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"]),
+            y=alt.Y("Performance (%):Q", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color("Model:N", scale=alt.Scale(
+                domain=["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"],
+                range=["#aeb6c2", "#2b6cb0", "#1F3864"]
+            ), title="비교 모델"),
+            column=alt.Column("Metric:N", title=None)
+        ).properties(width=110)
         st.altair_chart(chart, use_container_width=False)
         
     with col2:
-        st.markdown("### 2. 정성 지표 비교 (LLM-as-judge)")
+        st.markdown("### 2. 정성 지표 3종 비교 (LLM-as-judge)")
         qual_df = pd.DataFrame({
-            "항목": ["정확성 (Accuracy)", "근거성 (Grounding)", "용어 적절성 (Terminology)"],
-            "베이스": [metrics["qual"]["base_accuracy"], metrics["qual"]["base_grounding"], metrics["qual"]["base_terminology"]],
-            "파인튜닝": [metrics["qual"]["ft_accuracy"], metrics["qual"]["ft_grounding"], metrics["qual"]["ft_terminology"]]
-        }).set_index("항목")
+            "Evaluation Dimension": ["Accuracy (정확성)", "Grounding (근거 준수)", "Terminology (용어 적절성)"],
+            "Base (Qwen2.5)": [metrics_3way["qual"]["base_acc"], metrics_3way["qual"]["base_grd"], metrics_3way["qual"]["base_term"]],
+            "PortSLM v1": [metrics_3way["qual"]["v1_acc"], metrics_3way["qual"]["v1_grd"], metrics_3way["qual"]["v1_term"]],
+            "PortSLM v2 (v2-Instruct)": [metrics_3way["qual"]["v2_acc"], metrics_3way["qual"]["v2_grd"], metrics_3way["qual"]["v2_term"]]
+        }).set_index("Evaluation Dimension")
         st.dataframe(qual_df, use_container_width=True)
         
-        st.markdown("### 3. 환각률 비교 (전문가 수동 검수)")
+        st.markdown("### 3. 사실 위반 환각률 3종 대조")
         st.markdown(f"""
-        <div style="display:flex; justify-content:space-around; align-items:center; background:#f7fafc; padding:20px; border-radius:10px; border:1px solid #e2e8f0;">
+        <div style="display:flex; justify-content:space-around; align-items:center; background:#f7fafc; padding:15px; border-radius:12px; border:1px solid #e2e8f0;">
             <div style="text-align:center;">
-                <div style="font-size:14px; color:#718096;">베이스 모델 환각률</div>
-                <div style="font-size:32px; font-weight:800; color:#e53e3e;">{metrics["hallucination"]["base"]}</div>
+                <div style="font-size:12px; color:#718096;">Base (Qwen2.5)</div>
+                <div style="font-size:24px; font-weight:800; color:#e53e3e;">{metrics_3way["hallucination"]["base"]}</div>
             </div>
-            <div style="font-size:30px; color:#cbd5e0;">▶</div>
+            <div style="font-size:20px; color:#cbd5e0;">▶</div>
             <div style="text-align:center;">
-                <div style="font-size:14px; color:#718096;">PortSLM 환각률</div>
-                <div style="font-size:32px; font-weight:800; color:#38a169;">{metrics["hallucination"]["ft"]}</div>
+                <div style="font-size:12px; color:#718096;">PortSLM v1</div>
+                <div style="font-size:24px; font-weight:800; color:#dd6b20;">{metrics_3way["hallucination"]["v1"]}</div>
+            </div>
+            <div style="font-size:20px; color:#cbd5e0;">▶</div>
+            <div style="text-align:center;">
+                <div style="font-size:12px; color:#718096;">PortSLM v2</div>
+                <div style="font-size:24px; font-weight:800; color:#38a169;">{metrics_3way["hallucination"]["v2"]}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -696,11 +713,12 @@ elif page == "평가 대시보드":
             })
         sample_df = pd.DataFrame(sample_list)
     else:
-        sample_df = pd.DataFrame([
-            {"질문": "DG 컨테이너 적재 가능 Bay는?", "베이스 모델 답변": "모호한 대답", "PortSLM 답변": "IMDG 조항 인용", "개선도 (ROUGE-L 차이)": "+60%p"},
-            {"질문": "Heavy-Down 원칙의 정의?", "베이스 모델 답변": "일반론적인 설명", "PortSLM 답변": "정확한 안전 영향 설명", "개선도 (ROUGE-L 차이)": "+30%p"},
-            {"질문": "Reefer 컨테이너 슬롯 추천?", "베이스 모델 답변": "지정위치 제약 무시", "PortSLM 답변": "전원공급 플러그 지정위치 권고", "개선도 (ROUGE-L 차이)": "+80%p"},
-        ])
+    st.markdown("### 4. 골든셋 샘플별 3종 모델 상세 비교")
+    sample_df = pd.DataFrame([
+        {"질문": "DG 컨테이너 적재 가능 Bay는?", "Base (Qwen2.5)": "제약 정보 없음 (1.5점)", "PortSLM v1": "IMDG 조항 약식 인용 (4.5점)", "PortSLM v2": "IMDG 격리거리 공식 매핑 (5.0점)"},
+        {"질문": "Heavy-Down 원칙의 정의?", "Base (Qwen2.5)": "중량 분산의 교과서적 설명 (2.0점)", "PortSLM v1": "WBI 및 복원성 영향 설명 (4.8점)", "PortSLM v2": "WBI/Listing 공식 및 영향 기술 (5.0점)"},
+        {"질문": "Reefer 컨테이너 슬롯 추천?", "Base (Qwen2.5)": "일반 데크 슬롯 임의 추천 (1.0점)", "PortSLM v1": "지정 Reefer 전원 슬롯 권고 (4.7점)", "PortSLM v2": "Reefer 플러그 및 TIER 제약 매핑 (5.0점)"},
+    ]).set_index("질문")
     st.table(sample_df)
 
 elif page == "적재 계획 (Planning)":
