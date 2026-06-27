@@ -79,7 +79,7 @@ def main():
     parser.add_argument("--sft-dir", type=str, default="03_RAG(VectorDB)", help="비정형 청크 데이터 소스 디렉토리")
     parser.add_argument("--db-dir", type=str, default="data/chroma", help="ChromaDB 영속화 저장 경로")
     parser.add_argument("--collection", type=str, default="hps_docs", help="벡터 DB 컬렉션 이름")
-    parser.add_argument("--model", type=str, default="jhgan/ko-sroberta-multitask", help="임베딩 모델명")
+    parser.add_argument("--model", type=str, default="BAAI/bge-m3", help="임베딩 모델명")
     args = parser.parse_args()
 
     sft_dir = Path(args.sft_dir)

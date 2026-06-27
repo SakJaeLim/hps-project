@@ -105,7 +105,7 @@ def _retrieve_fallback(query: str, k: int = 4) -> list[dict]:
 # ─── 2. ChromaDB 시맨틱 검색 엔진 연동 ───────────────────────
 CHROMA_PERSIST_DIR = os.environ.get("CHROMA_PERSIST_DIR", "data/chroma")
 CHROMA_COLLECTION = os.environ.get("CHROMA_COLLECTION", "hps_docs")
-EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL_NAME", "jhgan/ko-sroberta-multitask")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL_NAME", "BAAI/bge-m3")
 
 _chroma_client = None
 _collection = None

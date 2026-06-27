@@ -39,7 +39,7 @@ python -m snct.knowledge.ingest_to_chroma \
   --sft-dir "03_RAG(VectorDB)" \
   --db-dir "data/chroma" \
   --collection "hps_docs" \
-  --model "jhgan/ko-sroberta-multitask"
+  --model "BAAI/bge-m3"
 
 # 3. 가상환경 비활성화하여 글로벌 환경 복귀
 echo -e "\n[STEP 3/3] 가상환경 비활성화 및 환경 정리..."
