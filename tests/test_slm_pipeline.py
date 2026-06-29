@@ -35,12 +35,15 @@ def test_eval_metrics_run():
     golden_file = os.path.join(BASE_DIR, "data", "simulated", "eval_golden.jsonl")
     report_csv = os.path.join(BASE_DIR, "data", "simulated", "test_eval_report.csv")
     
-    # Run offline evaluation with mock (by passing empty/none model path)
+    # Run offline evaluation with mock (None paths → mock fallback), 3-way signature
     run_evaluation(
         golden_path=golden_file,
-        base_model_path=None,
-        ft_model_path=None,
-        output_csv=report_csv
+        model_specs=[
+            {"key": "base", "label": "Base", "path": None},
+            {"key": "v1", "label": "v1", "path": None},
+            {"key": "v2", "label": "v2", "path": None},
+        ],
+        output_csv=report_csv,
     )
     
     assert os.path.exists(report_csv)

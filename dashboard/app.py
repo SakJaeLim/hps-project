@@ -593,26 +593,24 @@ elif page == "모델 비교 (Base vs v1 vs v2)":
             with col_base:
                 st.markdown("#### 🩶 Qwen2.5-VL (Base)")
                 st.info(base_text if base_text else "답변을 가져올 수 없습니다.")
-                st.error("⚠️ 제약조건 무시 및 환각 위험 (Base)")
-                
+
             with col_v1:
                 st.markdown("#### 💙 PortSLM v1 (Finetuned)")
                 st.info(ft_v1_text if ft_v1_text else "답변을 가져올 수 없습니다.")
-                st.warning("✓ 규정 인용 및 슬롯 제약 정상 작동 (v1)")
-                
+
             with col_v2:
                 st.markdown("#### ⚓ PortSLM v2 (최적화)")
                 st.info(ft_v2_text if ft_v2_text else "답변을 가져올 수 없습니다.")
-                if terms:
-                    st.success(f"✓ 감지 용어: {', '.join(terms)}")
-                else:
-                    st.success("✓ 사실 검증 및 제약 검토 완료 (v2)")
 
 
 elif page == "평가 대시보드":
-    st.markdown("### 평가 대시보드 (골든셋 30문항 결과)")
-    # 3종 골든셋 비교 평가 메트릭 (Base vs v1 vs v2)
-    metrics_3way = {
+    st.markdown("### 평가 대시보드 (골든셋 결과)")
+
+    # 실제 평가 결과(eval_summary.json) 우선 로드 → 없으면 데모(예시) 폴백.
+    # 서버에서 `python -m snct.eval.eval_metrics` 실행 시 data/simulated/eval_summary.json 생성됨.
+    import json as _json
+    from pathlib import Path as _Path
+    _default_3way = {
         "quant": {
             "base_rouge": 31.2, "v1_rouge": 88.5, "v2_rouge": 93.6,
             "base_term": 20.0, "v1_term": 92.4, "v2_term": 96.8
@@ -622,11 +620,23 @@ elif page == "평가 대시보드":
             "base_grd": 2.0, "v1_grd": 4.7, "v2_grd": 4.9,
             "base_term": 2.2, "v1_term": 4.6, "v2_term": 4.8
         },
-        "hallucination": {
-            "base": "18.0%", "v1": "7.0%", "v2": "2.5%"
-        }
+        "hallucination": {"base": "18.0%", "v1": "7.0%", "v2": "2.5%"}
     }
-        
+    metrics_3way = _default_3way
+    eval_samples = None
+    _eval_path = _Path(__file__).resolve().parent.parent / "data" / "simulated" / "eval_summary.json"
+    if _eval_path.exists():
+        try:
+            _s = _json.load(open(_eval_path, encoding="utf-8"))
+            metrics_3way = {"quant": _s.get("quant", {}), "qual": _s.get("qual", {}),
+                            "hallucination": _s.get("hallucination", {})}
+            eval_samples = _s.get("samples")
+            st.success(f"✅ 실제 평가 결과 반영됨 — 골든셋 {_s.get('n', '?')}문항 (eval_summary.json)")
+        except Exception as _e:
+            st.warning(f"⚠️ eval_summary.json 로드 실패 → 데모 수치 표시 ({_e})")
+    else:
+        st.info("ℹ️ 아직 실제 평가 미실행 → 데모(예시) 수치. 서버에서 `python -m snct.eval.eval_metrics` 실행 시 자동 반영됩니다.")
+
     col1, col2 = st.columns(2)
     
     with col1:
@@ -687,11 +697,14 @@ elif page == "평가 대시보드":
         """, unsafe_allow_html=True)
         
     st.markdown("### 4. 골든셋 샘플별 3종 모델 상세 비교")
-    sample_df = pd.DataFrame([
-        {"질문": "DG 컨테이너 적재 가능 Bay는?", "Base (Qwen2.5)": "제약 정보 없음 (1.5점)", "PortSLM v1": "IMDG 조항 약식 인용 (4.5점)", "PortSLM v2": "IMDG 격리거리 공식 매핑 (5.0점)"},
-        {"질문": "Heavy-Down 원칙의 정의?", "Base (Qwen2.5)": "중량 분산의 교과서적 설명 (2.0점)", "PortSLM v1": "WBI 및 복원성 영향 설명 (4.8점)", "PortSLM v2": "WBI/Listing 공식 및 영향 기술 (5.0점)"},
-        {"질문": "Reefer 컨테이너 슬롯 추천?", "Base (Qwen2.5)": "일반 데크 슬롯 임의 추천 (1.0점)", "PortSLM v1": "지정 Reefer 전원 슬롯 권고 (4.7점)", "PortSLM v2": "Reefer 플러그 및 TIER 제약 매핑 (5.0점)"},
-    ]).set_index("질문")
+    if eval_samples:
+        sample_df = pd.DataFrame(eval_samples).set_index("질문")
+    else:
+        sample_df = pd.DataFrame([
+            {"질문": "DG 컨테이너 적재 가능 Bay는?", "Base (Qwen2.5)": "제약 정보 없음 (1.5점)", "PortSLM v1": "IMDG 조항 약식 인용 (4.5점)", "PortSLM v2": "IMDG 격리거리 공식 매핑 (5.0점)"},
+            {"질문": "Heavy-Down 원칙의 정의?", "Base (Qwen2.5)": "중량 분산의 교과서적 설명 (2.0점)", "PortSLM v1": "WBI 및 복원성 영향 설명 (4.8점)", "PortSLM v2": "WBI/Listing 공식 및 영향 기술 (5.0점)"},
+            {"질문": "Reefer 컨테이너 슬롯 추천?", "Base (Qwen2.5)": "일반 데크 슬롯 임의 추천 (1.0점)", "PortSLM v1": "지정 Reefer 전원 슬롯 권고 (4.7점)", "PortSLM v2": "Reefer 플러그 및 TIER 제약 매핑 (5.0점)"},
+        ]).set_index("질문")
     st.table(sample_df)
 
 elif page == "적재 계획 (Planning)":
