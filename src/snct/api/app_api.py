@@ -529,9 +529,9 @@ def locate_endpoint(req: LocateRequest) -> dict:
 
 @app.get("/knowledge")
 def knowledge_endpoint(q: str = "DG 위험물 적재 규칙"):
-    """Query the knowledge router for evidence."""
+    """Query the knowledge orchestrator (route→retrieve→fuse→faithfulness) for evidence."""
     try:
-        from snct.knowledge.router import answer
+        from snct.knowledge.orchestrator import answer
         result = answer(q)
         return result
     except Exception as e:

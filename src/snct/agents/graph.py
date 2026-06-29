@@ -5,7 +5,7 @@ from snct.common.schema import YardState, CandidatePlan, Violation, Recommendati
 from snct.data.provider import get_provider
 from snct.engine.base import get_strategy
 from snct.ontology.graph import Ontology
-from snct.knowledge.router import answer as knowledge_answer
+from snct.knowledge.orchestrator import answer as knowledge_answer  # router 상위호환(Corrective-RAG+faithfulness)
 from snct.knowledge.explain import explain
 
 

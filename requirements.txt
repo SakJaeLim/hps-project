@@ -11,6 +11,7 @@ peft
 accelerate
 networkx
 scikit-learn
+langgraph>=0.2     # 지식 오케스트레이터(Corrective-RAG) — 미설치 시 순수 파이썬 폴백
 duckdb
 sqlalchemy
 neo4j             # GraphRAG/LPG Neo4j 드라이버 — spec 07 (미연결 시 CSV 폴백)

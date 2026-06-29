@@ -1,4 +1,7 @@
-"""지식 접근 라우터 — 질문을 doc/sql/graph 경로로 라우팅하고 근거를 모은다. specs/07."""
+"""지식 접근 라우터 — 질문을 doc/sql/graph 경로로 라우팅하고 근거를 모은다. specs/07.
+
+DEPRECATED: orchestrator.py(LangGraph, Corrective-RAG + faithfulness)로 대체됨.
+graph.py / app_api.py 는 orchestrator.answer 를 사용한다. 호환을 위해 남겨둠."""
 from enum import Enum
 
 
