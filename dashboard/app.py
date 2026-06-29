@@ -193,7 +193,7 @@ def example_chips(state_key: str, examples: list, n_cols: int = 3):
 
 # Local Session State Initializations
 if "active_model" not in st.session_state:
-    st.session_state.active_model = "PortSLM (Fine-Tuned)"
+    st.session_state.active_model = "PortSLM v2 (최신)"
 if "temperature" not in st.session_state:
     st.session_state.temperature = 0.7
 if "max_tokens" not in st.session_state:
@@ -416,7 +416,7 @@ with st.sidebar:
 
     st.session_state.active_model = st.selectbox(
         "사용 모델 선택",
-        ["PortSLM (Fine-Tuned)", "Qwen2.5-VL-3B (Base)"]
+        ["PortSLM v2 (최신)", "PortSLM v1", "Qwen2.5-VL-3B (Base)"]
     )
 
     st.session_state.temperature = st.slider(
@@ -428,7 +428,7 @@ with st.sidebar:
         help="표집(temperature>0) 시 누적확률 상위 p 토큰만 후보. temperature=0이면 무효.")
 
 # Render Topbar Header
-model_short = "PortSLM" if "Fine-Tuned" in st.session_state.active_model else "Base" if "Base" in st.session_state.active_model else "INT4"
+model_short = "Base" if "Base" in st.session_state.active_model else ("PortSLM v2" if "v2" in st.session_state.active_model else "PortSLM v1")
 st.markdown(f"""
 <div class="header-bar">
     <div>
@@ -538,7 +538,8 @@ elif page == "도메인 Q&A":
     if st.button("전송") and user_query:
         api_res = call_api("/generate", {
             "prompt": user_query,
-            "model": "base" if "Base" in st.session_state.active_model else "portslm",
+            "model": ("base" if "Base" in st.session_state.active_model
+                      else "portslm_v2" if "v2" in st.session_state.active_model else "portslm"),
             "temperature": st.session_state.temperature,
             "max_tokens": st.session_state.max_tokens,
             "top_p": st.session_state.top_p
