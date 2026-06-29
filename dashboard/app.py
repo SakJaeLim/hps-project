@@ -191,6 +191,29 @@ def example_chips(state_key: str, examples: list, n_cols: int = 3):
             st.session_state[state_key] = ex
 
 
+def format_answer_html(text: str) -> str:
+    """모델 답변을 읽기 쉬운 HTML 로. 인라인 열거 '(1)(2)…' / '결론:' 앞에 줄바꿈을
+    넣어 한 덩어리 문단(특히 v2)을 풀고, 마크다운/특수문자는 escape 해 깨짐 방지."""
+    import re as _re
+    import html as _html
+    t = (text or "답변을 가져올 수 없습니다.").strip()
+    t = _re.sub(r"\s*(\(\d{1,2}\))\s*", r"\n\1 ", t)   # (1) (2) … 앞 줄바꿈
+    t = _re.sub(r"\s*(결론\s*[:：])", r"\n\n\1", t)      # 결론: 강조
+    t = _re.sub(r"\n{3,}", "\n\n", t).strip()
+    return _html.escape(t).replace("\n", "<br>")
+
+
+def render_answer_card(text: str, accent: str = "#3b82f6"):
+    """모델 답변을 고대비 카드로 렌더(모델 비교 화면용)."""
+    st.markdown(
+        f"<div style='background:#0f1722;border:1px solid #243246;"
+        f"border-left:4px solid {accent};border-radius:10px;padding:16px 18px;"
+        f"color:#e6edf3;font-size:15px;line-height:1.8;word-break:keep-all;"
+        f"overflow-wrap:anywhere;'>{format_answer_html(text)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
 # Local Session State Initializations
 if "active_model" not in st.session_state:
     st.session_state.active_model = "PortSLM v2 (최신)"
@@ -565,7 +588,7 @@ elif page == "도메인 Q&A":
         if chat["role"] == "user":
             st.markdown(f'<div class="chat-bubble chat-user">🧑 <b>사용자:</b> {chat["content"]}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="chat-bubble chat-bot">⚓ <b>어시스턴트:</b> {chat["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="chat-bubble chat-bot">⚓ <b>어시스턴트:</b><br>{format_answer_html(chat["content"])}</div>', unsafe_allow_html=True)
             if chat.get("terms"):
                 st.markdown(f'<div class="evidence">▸ <b>감지된 핵심 도메인 용어/근거:</b> {", ".join(chat["terms"])}</div>', unsafe_allow_html=True)
                 
@@ -592,7 +615,7 @@ elif page == "도메인 Q&A":
 
 elif page == "모델 비교 (Base vs v1 vs v2)":
     st.markdown("### 📊 3종 모델 성능 비교 (Base vs v1 vs v2)")
-    st.markdown("<p style='font-size: 13px; color: #4a5568;'>동일한 조건 하에 베이스 모델, 파인튜닝 v1 모델, 신규 v2 모델의 안전 규정 준수 및 적재 계획 응답을 나란히 공정 비교합니다.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 13px; color: #9fb0c3;'>동일한 조건 하에 베이스 모델, 파인튜닝 v1 모델, 신규 v2 모델의 안전 규정 준수 및 적재 계획 응답을 나란히 공정 비교합니다.</p>", unsafe_allow_html=True)
     
     if "comp_query" not in st.session_state:
         st.session_state.comp_query = "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라."
@@ -627,15 +650,15 @@ elif page == "모델 비교 (Base vs v1 vs v2)":
             
             with col_base:
                 st.markdown("#### 🩶 Qwen2.5-VL (Base)")
-                st.info(base_text if base_text else "답변을 가져올 수 없습니다.")
+                render_answer_card(base_text, accent="#64748b")
 
             with col_v1:
                 st.markdown("#### 💙 PortSLM v1 (Finetuned)")
-                st.info(ft_v1_text if ft_v1_text else "답변을 가져올 수 없습니다.")
+                render_answer_card(ft_v1_text, accent="#3b82f6")
 
             with col_v2:
                 st.markdown("#### ⚓ PortSLM v2 (최적화)")
-                st.info(ft_v2_text if ft_v2_text else "답변을 가져올 수 없습니다.")
+                render_answer_card(ft_v2_text, accent="#22d3ee")
 
 
 elif page == "평가 대시보드":
