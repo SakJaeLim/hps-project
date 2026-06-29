@@ -16,6 +16,24 @@ def _clean_token(val):
         return None
     return val or None
 
+def _token_from_dotenv():
+    """레포 루트의 .env 에서 HF_TOKEN 을 읽어온다(폴백). VESSL 시크릿이 오염됐거나
+    --hf-token/HF_TOKEN env 가 없을 때 사용. .env 는 gitignore 라 안전하다."""
+    repo = os.environ.get("SNCT_BASE_DIR") or os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    path = os.path.join(repo, ".env")
+    if not os.path.exists(path):
+        return None
+    try:
+        for line in open(path, encoding="utf-8"):
+            line = line.strip()
+            if line.startswith("HF_TOKEN") and "=" in line:
+                val = line.split("=", 1)[1].split("#", 1)[0].strip().strip('"').strip("'")
+                return val or None
+    except Exception:
+        return None
+    return None
+
 def _sanitize_hf_token_env():
     """베이스 모델/프로세서 다운로드(public)는 토큰이 필요 없다. env 의 HF 토큰에
     비ASCII 가 섞여 있으면 Authorization 헤더 latin-1 인코딩에서 크래시하므로 비운다."""
@@ -116,12 +134,16 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         from huggingface_hub import HfApi
         print(f"Uploading merged model to Hugging Face: {upload_repo}")
         api = HfApi()
-        token = _clean_token(hf_token) or _clean_token(os.getenv("HF_TOKEN"))
+        token = (_clean_token(hf_token)
+                 or _clean_token(os.getenv("HF_TOKEN"))
+                 or _clean_token(_token_from_dotenv()))
         if not token:
-            print("Error: 유효한 Hugging Face 토큰이 없습니다. (--hf-token 또는 HF_TOKEN env)")
+            print("Error: 유효한 Hugging Face 토큰이 없습니다. (--hf-token / HF_TOKEN env / .env)")
             print("       토큰에 비ASCII(한글 등)/공백이 섞여 있으면 무효 처리됩니다. "
-                  "VESSL 시크릿의 HF_TOKEN 값을 'hf_...' 순수 ASCII 로 다시 설정하세요.")
+                  "VESSL 시크릿 또는 레포 루트 .env 의 HF_TOKEN 을 'hf_...' 순수 ASCII 로 설정하세요.")
             return
+        print("✔ HF 업로드 토큰 확보 (소스: "
+              f"{'--hf-token' if _clean_token(hf_token) else 'HF_TOKEN env' if _clean_token(os.getenv('HF_TOKEN')) else '.env'})")
 
         api.create_repo(token=token, repo_id=upload_repo, repo_type="model", private=True, exist_ok=True)
         api.upload_folder(token=token, repo_id=upload_repo, folder_path=output_dir)
