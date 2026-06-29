@@ -180,6 +180,17 @@ def call_api(endpoint: str, data: dict = None, method: str = "POST") -> dict | N
         print(f"[Dashboard API] Request failed for {endpoint}: {e}")
     return None
 
+
+def example_chips(state_key: str, examples: list, n_cols: int = 3):
+    """예시 질문 버튼 — 클릭 시 해당 입력 위젯(session_state[state_key])에 채워진다.
+    버튼은 위젯 생성 '이전'에 렌더돼야 클릭값이 같은 run 에서 반영된다."""
+    st.caption("💡 예시 질문 (클릭하면 아래 입력창에 채워집니다)")
+    cols = st.columns(n_cols)
+    for i, ex in enumerate(examples):
+        if cols[i % n_cols].button(ex, key=f"{state_key}__ex{i}", use_container_width=True):
+            st.session_state[state_key] = ex
+
+
 # Local Session State Initializations
 if "active_model" not in st.session_state:
     st.session_state.active_model = "PortSLM (Fine-Tuned)"
@@ -514,6 +525,14 @@ if page == "홈 (Home)":
 
 elif page == "도메인 Q&A":
     st.markdown("### 도메인 질의응답 (Q&A)")
+    example_chips("query_input", [
+        "DG 컨테이너 IMDG 격리 규정은?",
+        "Heavy-Down 원칙이 뭐야?",
+        "Reefer 컨테이너는 어디에 둬야 해?",
+        "OOG(초과화물) 취급 절차는?",
+        "재취급(rehandling)을 줄이려면?",
+        "SOLAS 컬럼 중량 한계는?",
+    ])
     user_query = st.text_input("질문을 입력하십시오 (예: DG 위험물 적재 규칙은 무엇인가?)", key="query_input")
     
     if st.button("전송") and user_query:
@@ -574,7 +593,17 @@ elif page == "모델 비교 (Base vs v1 vs v2)":
     st.markdown("### 📊 3종 모델 성능 비교 (Base vs v1 vs v2)")
     st.markdown("<p style='font-size: 13px; color: #4a5568;'>동일한 조건 하에 베이스 모델, 파인튜닝 v1 모델, 신규 v2 모델의 안전 규정 준수 및 적재 계획 응답을 나란히 공정 비교합니다.</p>", unsafe_allow_html=True)
     
-    comp_query = st.text_input("비교 질문 입력", "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라.")
+    if "comp_query" not in st.session_state:
+        st.session_state.comp_query = "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라."
+    example_chips("comp_query", [
+        "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라.",
+        "DG 컨테이너 적재 가능 Bay와 격리 규정은?",
+        "Reefer 컨테이너 슬롯을 추천하라.",
+        "POD가 Rotterdam인 컨테이너의 배치 근거는?",
+        "좌우 중량 62:38 불균형 적재를 진단하라.",
+        "Heavy-Down 원칙의 정의와 복원성 영향은?",
+    ])
+    comp_query = st.text_input("비교 질문 입력", key="comp_query")
     
     if st.button("3종 모델 답변 동시 생성", type="primary"):
         with st.spinner("3개 모델 추론 구동 중 (Base / v1 / v2)..."):
@@ -818,7 +847,16 @@ elif page == "적재 계획 (Planning)":
         }
         vessel_id = st.text_input("Vessel ID", level_to_vessel[level_choice])
         
-    plan_query = st.text_area("작업 지시 입력", "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.")
+    if "plan_query" not in st.session_state:
+        st.session_state.plan_query = "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라."
+    example_chips("plan_query", [
+        "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.",
+        "Reefer 3개를 포함한 혼합 화물의 적재 계획을 세워라.",
+        "고중량 위주 화물을 무게균형 우선으로 적재하라.",
+        "DG·일반 혼재 화물을 안전 규정에 맞게 적재하라.",
+        "재취급(overstow)을 최소화하는 적재 계획을 수립하라.",
+    ], n_cols=2)
+    plan_query = st.text_area("작업 지시 입력", key="plan_query")
 
     plan_mode = st.radio(
         "계획 생성 기준",
