@@ -108,6 +108,16 @@ def compute_term_rate(text):
     return count / len(DOMAIN_TERMS)
 
 
+def _clean_cell(text, n=80):
+    """샘플 표 셀용 정리 — 마크다운(##/**/리스트)·개행을 제거해 한 줄 평문으로.
+    Base 모델이 마크다운 헤더로 답해 표가 큰 제목/깨진 글머리로 렌더되는 문제 방지."""
+    import re
+    t = re.sub(r"\s+", " ", str(text or ""))     # 개행·중복공백 → 단일 공백
+    t = re.sub(r"[#>*`_~|]+", "", t)             # 마크다운 기호 제거
+    t = t.strip()
+    return (t[:n] + "…") if len(t) > n else t
+
+
 def _heuristic_judge(output, rouge_f, term_rate):
     """모델을 judge 로 쓰지 않고 사실값 기반으로 1~5 점 산출(빠르고 안정·재현 가능)."""
     out = str(output or "")
@@ -301,7 +311,7 @@ def run_evaluation(golden_path, model_specs, output_csv, summary_json=None):
         s = {"질문": r["question"]}
         for spec in model_specs:
             k = spec["key"]
-            s[spec["label"]] = f"{str(r[f'{k}_output'])[:48]}… ({r[f'{k}_accuracy']}점)"
+            s[spec["label"]] = f"{_clean_cell(r[f'{k}_output'])} ({r[f'{k}_accuracy']}점)"
         summary["samples"].append(s)
 
     # 태스크 타입별 분해 (v2가 어떤 질문 유형에 강/약한지 — "데이터가 유효한 영역" 판정용)

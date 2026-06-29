@@ -698,6 +698,14 @@ elif page == "평가 대시보드":
         
     st.markdown("### 4. 골든셋 샘플별 3종 모델 상세 비교")
     if eval_samples:
+        # 마크다운(##/**/리스트)·개행 제거 — Base 모델이 마크다운으로 답해 표가
+        # 큰 제목/깨진 글머리로 렌더되는 문제 방지 (구 eval_summary.json도 즉시 정리됨)
+        import re as _re
+        def _cln(v):
+            v = _re.sub(r"\s+", " ", str(v))
+            v = _re.sub(r"[#>*`_~|]+", "", v)
+            return v.strip()
+        eval_samples = [{kk: _cln(vv) for kk, vv in row.items()} for row in eval_samples]
         sample_df = pd.DataFrame(eval_samples).set_index("질문")
     else:
         sample_df = pd.DataFrame([
