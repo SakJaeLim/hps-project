@@ -35,7 +35,7 @@ container terminal sql agent/
 .DS_Store
 
 # 평가 산출물(런타임 생성·덮어쓰기 → git 미추적; 대시보드는 있으면 읽고 없으면 데모 폴백)
-data/simulated/engine_eval.json
+data/simulated/engine_eval*.json
 data/simulated/eval_summary.json
 data/simulated/eval_report.csv
 data/regen/

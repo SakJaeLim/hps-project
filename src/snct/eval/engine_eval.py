@@ -11,14 +11,47 @@ import os
 import csv
 import glob
 import json
+import random
 import argparse
 import statistics
 
 from snct.data.provider import get_provider
 from snct.engine.base import get_strategy
 from snct.engine.metrics import compute_plan_kpi
+from snct.common.schema import Container, Slot, YardState
+from snct.data.gen_sft_aug import POD_ORDER, PODS
 
 ENGINE_TO_POLICY = {"rl_bl": "BL", "rl_sf": "SF", "rl_ef": "EF"}
+
+
+def make_hard_scenarios(n, seed=123):
+    """변별력 있는 '빡센' 시나리오 생성 — greedy가 흔들리도록 제약을 타이트하게.
+    10×10 격자 + 컨테이너 다수 + 컬럼중량 캡 빡빡 + DG/Reefer 슬롯 1행씩만 + 고중량 포함."""
+    rng = random.Random(seed)
+    tasks = []
+    for i in range(n):
+        n_rows, n_tiers = 10, 10
+        dg_rows, reefer_rows = {0}, {1}           # DG/Reefer 슬롯을 1행씩만 → 제약 압박
+        col_cap = rng.choice([55.0, 60.0, 65.0])  # 행(컬럼) 누적중량 캡 빡빡 → 무게 분산 강제
+        slots = [
+            Slot(bay=1, row=r, tier=t, max_stack_weight=col_cap,
+                 dg_allowed=(r in dg_rows), reefer_capable=(r in reefer_rows))
+            for r in range(n_rows) for t in range(n_tiers)
+        ]
+        n_ctn = rng.randint(35, 55)               # 격자의 35~55% 채움 → 패킹 압박
+        queue = []
+        for j in range(n_ctn):
+            pod = rng.choice(PODS)
+            w = round(rng.uniform(10.0, 26.0), 1)  # 고중량(>20t) 포함
+            is_dg = rng.random() < 0.18
+            is_rf = (not is_dg) and rng.random() < 0.18
+            queue.append(Container(
+                id=f"H{i:02d}-{j:02d}", weight_ton=w, size="40",
+                type="DG" if is_dg else ("RF" if is_rf else "GP"),
+                pod=pod, dg=is_dg, reefer=is_rf, discharge_order=POD_ORDER[pod],
+            ))
+        tasks.append((f"HARD{i:02d}", YardState(slots=slots, queue=queue)))
+    return tasks
 
 
 def _load_train_kpi():
@@ -64,24 +97,22 @@ KPIS = [
 ]
 
 
-def run_engine_eval(engines, vessels, out_json=None):
-    prov = get_provider("simulated")
+def run_engine_eval(engines, tasks, out_json=None):
+    # tasks: list of (name, YardState)
     train_kpi = _load_train_kpi()  # 정책별 학습 KPI (BL/SF/EF 실제 차이)
-    detail = {}       # engine -> {vessel -> kpi}
+    detail = {}       # engine -> {task -> kpi}
     by_engine = {}    # engine -> {metric mean ..., loaded}
 
     for eng in engines:
         strat = get_strategy(eng)
         loaded = getattr(strat, "model", None) is not None  # RL: 체크포인트 실제 로드 여부
         per = {}
-        for v in vessels:
+        for name, yard in tasks:
             try:
-                yard = prov.get_yard_state(v)
-                plan = strat.plan(yard)
-                per[v] = compute_plan_kpi(yard, plan)
+                per[name] = compute_plan_kpi(yard, strat.plan(yard))
             except Exception as e:
-                print(f"  [{eng}/{v}] ERROR: {e}")
-                per[v] = None
+                print(f"  [{eng}/{name}] ERROR: {e}")
+                per[name] = None
         detail[eng] = per
 
         agg = {}
@@ -98,7 +129,7 @@ def run_engine_eval(engines, vessels, out_json=None):
         print(f"  {eng:8s}{tag}: " + " | ".join(
             f"{lab}={agg[key]}" for key, lab, _ in KPIS))
 
-    summary = {"engines": engines, "vessels": vessels,
+    summary = {"engines": engines, "tasks": [n for n, _ in tasks],
                "kpis": [{"key": k, "label": l, "higher_better": hb} for k, l, hb in KPIS],
                "by_engine": by_engine, "detail": detail}
 
@@ -138,7 +169,18 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description="RL 적재 엔진 정량 평가 (greedy vs rl_bl/sf/ef)")
     p.add_argument("--engines", nargs="+", default=ENGINES)
     p.add_argument("--vessels", nargs="+", default=VESSELS)
+    p.add_argument("--hard", type=int, default=0,
+                   help="N>0 이면 provider 대신 빡센 합성 시나리오 N개로 평가(변별력↑)")
+    p.add_argument("--seed", type=int, default=123)
     p.add_argument("--out-json", type=str, default=os.path.join(base_dir, "data", "simulated", "engine_eval.json"))
     args = p.parse_args()
-    print("=== RL 엔진 평가 (engine × vessel KPI) ===")
-    run_engine_eval(args.engines, args.vessels, out_json=args.out_json)
+
+    if args.hard > 0:
+        print(f"=== RL 엔진 평가 [HARD 모드 — 빡센 시나리오 {args.hard}개] ===")
+        tasks = make_hard_scenarios(args.hard, seed=args.seed)
+    else:
+        print("=== RL 엔진 평가 (engine × vessel KPI) ===")
+        prov = get_provider("simulated")
+        tasks = [(v, prov.get_yard_state(v)) for v in args.vessels]
+
+    run_engine_eval(args.engines, tasks, out_json=args.out_json)
