@@ -1,4 +1,5 @@
 import os
+import json
 import argparse
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -21,69 +22,50 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         device_map="auto",
         trust_remote_code=True
     )
-    
-    print(f"Loading adapter from: {adapter_path}")
-    
-    # 1. PEFT 머지 버그 방지를 위해 Base 모델의 원래 lm_head 가중치를 딥카피 백업
-    import copy
-    try:
-        base_lm_head = copy.deepcopy(base.lm_head.state_dict())
-        print("✔ Base model lm_head.weight backup successful.")
-    except Exception as backup_err:
-        base_lm_head = None
-        print(f"⚠️ Failed to backup base lm_head: {backup_err}")
 
+    print(f"Loading adapter from: {adapter_path}")
     model = PeftModel.from_pretrained(base, adapter_path)
-    
+
     print("Merging weights...")
     merged_model = model.merge_and_unload()
-    
-    # 2. 머지 완료 후, 유실된 lm_head 가중치를 백업본으로 강제 복원
-    if base_lm_head is not None:
-        try:
-            merged_model.lm_head.load_state_dict(base_lm_head)
-            print("✔ Restored lm_head.weight into merged model successfully!")
-        except Exception as restore_err:
-            print(f"⚠️ Failed to restore lm_head.weight: {restore_err}")
-            
+
+    # ------------------------------------------------------------------
+    # 핵심: Qwen2.5-VL-3B 은 입력 임베딩과 출력층을 공유하는 tied 모델이다.
+    # (lm_head.weight == model.embed_tokens.weight)
+    # 병합 과정에서 최상위 config.tie_word_embeddings 플래그가 유실되면,
+    # save_pretrained 가 tied 텐서를 중복 제거(=lm_head.weight 미저장)했는데도
+    # 로더는 tie 를 안 하고 lm_head 를 랜덤 초기화 → 출력이 깨진다(토큰 샐러드).
+    # 따라서 저장 직전에 tie 플래그를 명시적으로 복원하고 다시 묶어준다.
+    # ------------------------------------------------------------------
+    merged_model.config.tie_word_embeddings = True
+    if getattr(merged_model.config, "text_config", None) is not None:
+        merged_model.config.text_config.tie_word_embeddings = True
+    merged_model.tie_weights()
+    print("✔ Enforced tie_word_embeddings=True (top-level + text_config) and re-tied weights.")
+
     print(f"Saving merged model to: {output_dir}")
-    tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
     merged_model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
-    
-    # 3. model.safetensors.index.json 맵핑 파일 강제 보정 (lm_head 누락 버그 해결)
-    index_file = os.path.join(output_dir, "model.safetensors.index.json")
-    if os.path.exists(index_file):
-        try:
-            import json
-            with open(index_file, "r", encoding="utf-8") as f_idx:
-                index_data = json.load(f_idx)
-            
-            weight_map = index_data.get("weight_map", {})
-            if "lm_head.weight" not in weight_map:
-                print("   🛠️ model.safetensors.index.json 내 lm_head.weight 누락 발견. 인덱스 보정 작업을 실행합니다.")
-                # safetensors 파일 조각 목록 중 마지막 조각에 lm_head.weight 강제 매핑
-                safetensors_files = sorted([sf for sf in os.listdir(output_dir) if sf.endswith(".safetensors")])
-                if safetensors_files:
-                    target_sf_file = safetensors_files[-1]
-                    weight_map["lm_head.weight"] = target_sf_file
-                    index_data["weight_map"] = weight_map
-                    with open(index_file, "w", encoding="utf-8") as f_idx:
-                        json.dump(index_data, f_idx, indent=2)
-                    print(f"   ✔ lm_head.weight ➔ {target_sf_file} 맵핑 강제 보정 완료!")
-                else:
-                    # 단일 safetensors 파일인 경우
-                    if os.path.exists(os.path.join(output_dir, "model.safetensors")):
-                        weight_map["lm_head.weight"] = "model.safetensors"
-                        index_data["weight_map"] = weight_map
-                        with open(index_file, "w", encoding="utf-8") as f_idx:
-                            json.dump(index_data, f_idx, indent=2)
-                        print("   ✔ lm_head.weight ➔ model.safetensors 맵핑 완료!")
-        except Exception as idx_err:
-            print(f"   ⚠️ model.safetensors.index.json 인덱스 보정 중 예외 발생: {idx_err}")
+
+    # VL 모델은 토크나이저뿐 아니라 이미지 프로세서(preprocessor_config.json)까지
+    # 함께 저장해야 추론 시 base 모델로 폴백하지 않는다. AutoProcessor 로 일괄 저장.
+    try:
+        from transformers import AutoProcessor
+        processor = AutoProcessor.from_pretrained(base_model_id, trust_remote_code=True)
+        processor.save_pretrained(output_dir)
+        print("✔ Saved full processor (tokenizer + image processor).")
+    except Exception as proc_err:
+        print(f"⚠️ AutoProcessor save failed ({proc_err}); falling back to tokenizer only.")
+        tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+        tokenizer.save_pretrained(output_dir)
 
     print("Merge complete.")
-    
+
+    # ------------------------------------------------------------------
+    # 저장 산출물 검증: tie 플래그가 켜져 있고, index.json 에 lm_head.weight
+    # 유령 매핑이 없는지(텐서가 실제 없는데 가리키지 않는지) 확인한다.
+    # ------------------------------------------------------------------
+    _verify_artifact(output_dir)
+
     if upload_repo:
         from huggingface_hub import HfApi
         print(f"Uploading merged model to Hugging Face: {upload_repo}")
@@ -92,10 +74,48 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         if not token:
             print("Error: Hugging Face token not found. Set HF_TOKEN environment variable or pass --hf-token.")
             return
-            
+
         api.create_repo(token=token, repo_id=upload_repo, repo_type="model", private=True, exist_ok=True)
         api.upload_folder(token=token, repo_id=upload_repo, folder_path=output_dir)
         print("Upload complete.")
+
+
+def _verify_artifact(output_dir):
+    """Sanity-check the saved checkpoint so a broken (gibberish) model never ships."""
+    ok = True
+
+    cfg_file = os.path.join(output_dir, "config.json")
+    if os.path.exists(cfg_file):
+        with open(cfg_file, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        tie_top = cfg.get("tie_word_embeddings")
+        tie_txt = (cfg.get("text_config") or {}).get("tie_word_embeddings")
+        if tie_top is True or tie_txt is True:
+            print(f"   ✔ config tie_word_embeddings OK (top={tie_top}, text={tie_txt}).")
+        else:
+            ok = False
+            print(f"   ❌ config tie_word_embeddings NOT set (top={tie_top}, text={tie_txt}).")
+
+    index_file = os.path.join(output_dir, "model.safetensors.index.json")
+    if os.path.exists(index_file):
+        with open(index_file, "r", encoding="utf-8") as f:
+            weight_map = json.load(f).get("weight_map", {})
+        # tied 모델이면 lm_head.weight 는 index 에 없어야 정상(embed_tokens 로 묶임).
+        if "lm_head.weight" in weight_map:
+            ok = False
+            print("   ❌ index.json still maps lm_head.weight (phantom mapping risk).")
+        else:
+            print("   ✔ index.json has no lm_head.weight mapping (correctly tied).")
+        if not any("embed_tokens" in k for k in weight_map):
+            ok = False
+            print("   ❌ index.json missing embed_tokens.weight.")
+
+    if ok:
+        print("✔ Artifact verification passed.")
+    else:
+        print("⚠️ Artifact verification FAILED — do not trust this checkpoint until fixed.")
+    return ok
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -105,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--upload-repo", type=str, default=None)
     parser.add_argument("--hf-token", type=str, default=None)
     args = parser.parse_args()
-    
+
     merge(
         base_model_id=args.base_model,
         adapter_path=args.adapter_path,
