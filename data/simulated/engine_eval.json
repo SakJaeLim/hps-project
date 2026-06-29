@@ -1,0 +1,265 @@
+{
+  "engines": [
+    "greedy",
+    "rl_bl",
+    "rl_sf",
+    "rl_ef"
+  ],
+  "vessels": [
+    "VESSEL-LV1",
+    "VESSEL-LV2",
+    "VESSEL-LV3",
+    "VESSEL-LV4"
+  ],
+  "kpis": [
+    {
+      "key": "assign_rate",
+      "label": "배정률(%)",
+      "higher_better": true
+    },
+    {
+      "key": "heavy_down_rate",
+      "label": "Heavy-Down 준수율(%)",
+      "higher_better": true
+    },
+    {
+      "key": "pod_violation_rate",
+      "label": "POD 역전 위반률(%)",
+      "higher_better": false
+    },
+    {
+      "key": "row_weight_std",
+      "label": "Row 무게편차(t)",
+      "higher_better": false
+    },
+    {
+      "key": "dg_violations",
+      "label": "DG 제약위반(건)",
+      "higher_better": false
+    }
+  ],
+  "by_engine": {
+    "greedy": {
+      "assign_rate": 100.0,
+      "heavy_down_rate": 100.0,
+      "pod_violation_rate": 0.0,
+      "row_weight_std": 5.1,
+      "dg_violations": 0,
+      "loaded": false,
+      "is_rl": false
+    },
+    "rl_bl": {
+      "assign_rate": 100.0,
+      "heavy_down_rate": 100.0,
+      "pod_violation_rate": 0.0,
+      "row_weight_std": 5.1,
+      "dg_violations": 0,
+      "loaded": false,
+      "is_rl": true
+    },
+    "rl_sf": {
+      "assign_rate": 100.0,
+      "heavy_down_rate": 100.0,
+      "pod_violation_rate": 0.0,
+      "row_weight_std": 5.1,
+      "dg_violations": 0,
+      "loaded": false,
+      "is_rl": true
+    },
+    "rl_ef": {
+      "assign_rate": 100.0,
+      "heavy_down_rate": 100.0,
+      "pod_violation_rate": 0.0,
+      "row_weight_std": 5.1,
+      "dg_violations": 0,
+      "loaded": false,
+      "is_rl": true
+    }
+  },
+  "detail": {
+    "greedy": {
+      "VESSEL-LV1": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV2": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV3": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV4": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      }
+    },
+    "rl_bl": {
+      "VESSEL-LV1": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV2": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV3": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV4": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      }
+    },
+    "rl_sf": {
+      "VESSEL-LV1": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV2": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV3": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV4": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      }
+    },
+    "rl_ef": {
+      "VESSEL-LV1": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV2": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV3": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      },
+      "VESSEL-LV4": {
+        "assign_rate": 100.0,
+        "heavy_down_rate": 100.0,
+        "pod_violation_rate": 0.0,
+        "row_weight_std": 5.1,
+        "avg_weight": 18.17,
+        "dg_violations": 0,
+        "n_assigned": 3,
+        "n_unassigned": 0,
+        "n_total": 3
+      }
+    }
+  }
+}

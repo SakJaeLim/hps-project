@@ -707,6 +707,56 @@ elif page == "평가 대시보드":
         ]).set_index("질문")
     st.table(sample_df)
 
+    # ── 5. RL 적재 엔진 정량 평가 (SLM과 별개 트랙) ──
+    st.markdown("---")
+    st.markdown("### 5. RL 적재 엔진 KPI 비교 (greedy vs rl_bl/sf/ef)")
+    st.caption("적재 계획의 운영 품질 지표. 기준: RL이 greedy(휴리스틱 하한선)보다 POD역전·무게편차에서 우위 + 하드제약 위반 0.")
+    _eng_path = _Path(__file__).resolve().parent.parent / "data" / "simulated" / "engine_eval.json"
+    if _eng_path.exists():
+        try:
+            _e = _json.load(open(_eng_path, encoding="utf-8"))
+            _kpis = _e.get("kpis", [])
+            _be = _e.get("by_engine", {})
+            _rows = []
+            for eng, agg in _be.items():
+                row = {"엔진": eng}
+                for k in _kpis:
+                    row[k["label"]] = agg.get(k["key"])
+                row["PPO로드"] = "—" if not agg.get("is_rl") else ("✅" if agg.get("loaded") else "⚠️폴백")
+                _rows.append(row)
+            st.dataframe(pd.DataFrame(_rows).set_index("엔진"), use_container_width=True)
+
+            import altair as alt
+            _crows = []
+            for eng, agg in _be.items():
+                _crows.append({"엔진": eng, "지표": "POD역전 위반률(%)", "값": agg.get("pod_violation_rate")})
+                _crows.append({"엔진": eng, "지표": "Row 무게편차(t)", "값": agg.get("row_weight_std")})
+            _ch = alt.Chart(pd.DataFrame(_crows)).mark_bar().encode(
+                x=alt.X("엔진:N", title=None),
+                y=alt.Y("값:Q"),
+                color=alt.Color("엔진:N", legend=None),
+                column=alt.Column("지표:N", title="↓ 낮을수록 좋음"),
+            ).properties(width=130)
+            st.altair_chart(_ch, use_container_width=False)
+
+            _g = _be.get("greedy", {})
+            _verd = []
+            for eng, agg in _be.items():
+                if not agg.get("is_rl"):
+                    continue
+                if not agg.get("loaded"):
+                    _verd.append(f"- **{eng}**: ⚠️ PPO 미로드(greedy 폴백) — 판정 불가")
+                    continue
+                _ok = ((agg.get("pod_violation_rate") or 0) <= (_g.get("pod_violation_rate") or 0)
+                       and (agg.get("row_weight_std") or 0) <= (_g.get("row_weight_std") or 0))
+                _verd.append(f"- **{eng}**: {'✅ greedy 대비 우위' if _ok else '🟡 일부/열위 (재검토)'}")
+            if _verd:
+                st.markdown("**판정 (RL vs greedy):**\n" + "\n".join(_verd))
+        except Exception as _e2:
+            st.warning(f"engine_eval.json 로드 실패: {_e2}")
+    else:
+        st.info("ℹ️ RL 엔진 평가 미실행 → 서버에서 `python -m snct.eval.engine_eval` 실행 시 이 표가 채워집니다.")
+
 elif page == "적재 계획 (Planning)":
     st.markdown("### 🚢 스마트 적재 계획 생성기")
     st.markdown("<p style='font-size: 13px; color: #4a5568;'>엔진(Greedy/RL)을 선택하고 적재 계획을 요청하면, 에이전트가 계획 수립, 제약 검증, 그리고 규정에 기반한 근거 설명을 자동으로 수행합니다.</p>", unsafe_allow_html=True)
