@@ -46,6 +46,26 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
     print(f"Saving merged model to: {output_dir}")
     merged_model.save_pretrained(output_dir)
 
+    # ------------------------------------------------------------------
+    # 중요: Qwen2.5-VL 복합 config 는 save_pretrained 시 최상위
+    # tie_word_embeddings 가 직렬화에서 누락된다(text_config 에만 True 로 남음).
+    # 그런데 로더는 '최상위' 플래그로 tie 여부를 판단하므로, 누락되면 lm_head 를
+    # tie 하지 않고 랜덤 초기화 → MISSING → 출력이 깨진다(base/v1 은 최상위 True).
+    # 따라서 저장된 config.json 을 디스크에서 직접 보정해 최상위 플래그를 강제한다.
+    cfg_path = os.path.join(output_dir, "config.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            cfg["tie_word_embeddings"] = True
+            if isinstance(cfg.get("text_config"), dict):
+                cfg["text_config"]["tie_word_embeddings"] = True
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            print("✔ Forced top-level tie_word_embeddings=true into saved config.json.")
+        except Exception as cfg_err:
+            print(f"⚠️ Failed to patch config.json tie flag: {cfg_err}")
+
     # VL 모델은 토크나이저뿐 아니라 이미지 프로세서(preprocessor_config.json)까지
     # 함께 저장해야 추론 시 base 모델로 폴백하지 않는다. AutoProcessor 로 일괄 저장.
     try:
@@ -90,11 +110,14 @@ def _verify_artifact(output_dir):
             cfg = json.load(f)
         tie_top = cfg.get("tie_word_embeddings")
         tie_txt = (cfg.get("text_config") or {}).get("tie_word_embeddings")
-        if tie_top is True or tie_txt is True:
-            print(f"   ✔ config tie_word_embeddings OK (top={tie_top}, text={tie_txt}).")
+        # 로더는 '최상위' 플래그로 tie 를 판단한다. top 이 True 가 아니면 lm_head 가
+        # 랜덤 초기화되어 출력이 깨진다(text_config 만 True 인 것으론 부족).
+        if tie_top is True:
+            print(f"   ✔ top-level tie_word_embeddings=True (text={tie_txt}).")
         else:
             ok = False
-            print(f"   ❌ config tie_word_embeddings NOT set (top={tie_top}, text={tie_txt}).")
+            print(f"   ❌ top-level tie_word_embeddings NOT True (top={tie_top}, text={tie_txt}) "
+                  f"→ lm_head 가 tie 되지 않아 출력이 깨질 위험!")
 
     index_file = os.path.join(output_dir, "model.safetensors.index.json")
     if os.path.exists(index_file):
