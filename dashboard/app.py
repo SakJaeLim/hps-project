@@ -707,10 +707,21 @@ elif page == "평가 대시보드":
         ]).set_index("질문")
     st.table(sample_df)
 
-    # ── 5. RL 적재 엔진 정량 평가 (SLM과 별개 트랙) ──
+    # ── 5. RL 적재 엔진 정량 평가 — CSPP 학계 표준 지표 (SLM과 별개 트랙) ──
     st.markdown("---")
-    st.markdown("### 5. RL 적재 엔진 KPI 비교 (greedy vs rl_bl/sf/ef)")
-    st.caption("적재 계획의 운영 품질 지표. 기준: RL이 greedy(휴리스틱 하한선)보다 POD역전·무게편차에서 우위 + 하드제약 위반 0.")
+    st.markdown("### 5. RL 적재 엔진 KPI — CSPP 학계 표준 지표 (greedy vs rl_bl/sf/ef)")
+    st.caption("컨테이너 적재계획(CSPP)/RL 문헌의 표준 평가지표로 비교 — 기준: RL이 휴리스틱(greedy) 대비 "
+               "Overstow↓ · WBI↑ + 하드제약 위반 0.")
+    with st.expander("📖 표준 지표 정의 (CSPP/RL 문헌 기준)"):
+        st.markdown(
+            "- **Overstow률 (OSR)** — 학계 **1순위 목적**. 아래 컨테이너를 꺼낼 때 위에 막혀 "
+            "재취급(rehandle)해야 하는 비율. **낮을수록 우수**.\n"
+            "- **WBI (무게균형지수)** — 행간 무게 분산 = 선박 **복원성(GM/안정성)** 프록시. **높을수록 우수**.\n"
+            "- **제약위반 (feasibility)** — DG/Reefer·컬럼중량(SOLAS) 등 하드제약 위반 건수. **0이어야 정상**.\n"
+            "- **배정률 (utilization)** — 적재 완료율. 높을수록 우수.\n\n"
+            "출처: CSPP/RL 평가 표준 — overstowage(재취급) 최소화가 1순위, 복원성·feasibility가 핵심 "
+            "(arXiv 2510.02589 · 2502.12756; MDPI JMSE 10(4):517 등)."
+        )
     _eng_path = _Path(__file__).resolve().parent.parent / "data" / "simulated" / "engine_eval.json"
     if _eng_path.exists():
         try:
