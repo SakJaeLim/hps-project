@@ -235,11 +235,19 @@ def run_evaluation(golden_path, model_specs, output_csv, summary_json=None):
     # 2) 항목별 지표 계산
     rouge = Rouge()
     rows = []
-    agg = {s["key"]: {"rouge": [], "term": [], "acc": [], "grd": [], "trm": [], "halluc": []} for s in model_specs}
+
+    def _fresh_agg():
+        return {s["key"]: {"rouge": [], "term": [], "acc": [], "grd": [], "trm": [], "halluc": []} for s in model_specs}
+
+    agg = _fresh_agg()
+    agg_by_type = {}  # {task_type: agg}  — 태스크 타입별 분해 (v2가 어떤 질문에 강/약한지)
 
     for i, item in enumerate(golden_items):
         ref = item.get("output", "")
         ref_m = " ".join(get_morphs(ref))
+        itype = item.get("type", "") or "(none)"
+        if itype not in agg_by_type:
+            agg_by_type[itype] = _fresh_agg()
         row = {"id": i + 1, "type": item.get("type", ""), "question": item.get("input", ""), "reference": ref}
         for spec in model_specs:
             k = spec["key"]
@@ -259,12 +267,13 @@ def run_evaluation(golden_path, model_specs, output_csv, summary_json=None):
             row[f"{k}_grounding"] = jd["grounding"]
             row[f"{k}_terminology"] = jd["terminology"]
             row[f"{k}_hallucinated"] = hl
-            agg[k]["rouge"].append(rf)
-            agg[k]["term"].append(tr)
-            agg[k]["acc"].append(jd["accuracy"])
-            agg[k]["grd"].append(jd["grounding"])
-            agg[k]["trm"].append(jd["terminology"])
-            agg[k]["halluc"].append(hl)
+            for bucket in (agg, agg_by_type[itype]):
+                bucket[k]["rouge"].append(rf)
+                bucket[k]["term"].append(tr)
+                bucket[k]["acc"].append(jd["accuracy"])
+                bucket[k]["grd"].append(jd["grounding"])
+                bucket[k]["trm"].append(jd["terminology"])
+                bucket[k]["halluc"].append(hl)
         rows.append(row)
 
     # 3) 상세 CSV 저장
@@ -294,6 +303,17 @@ def run_evaluation(golden_path, model_specs, output_csv, summary_json=None):
             k = spec["key"]
             s[spec["label"]] = f"{str(r[f'{k}_output'])[:48]}… ({r[f'{k}_accuracy']}점)"
         summary["samples"].append(s)
+
+    # 태스크 타입별 분해 (v2가 어떤 질문 유형에 강/약한지 — "데이터가 유효한 영역" 판정용)
+    summary["by_type"] = {}
+    for itype, d in agg_by_type.items():
+        entry = {"n": len(d[model_specs[0]["key"]]["rouge"])}
+        for spec in model_specs:
+            k, a = spec["key"], d[spec["key"]]
+            entry[f"{k}_rouge"] = round(m(a["rouge"]) * 100, 1)
+            entry[f"{k}_acc"] = m(a["acc"])
+            entry[f"{k}_halluc"] = f"{round(m(a['halluc']) * 100, 1)}%"
+        summary["by_type"][itype] = entry
 
     if summary_json:
         os.makedirs(os.path.dirname(summary_json) or ".", exist_ok=True)
