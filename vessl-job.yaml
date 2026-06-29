@@ -27,17 +27,19 @@ run:
     # 3. 데이터셋 환경변수 및 모듈 경로 로드
     export PYTHONPATH=/workspace/code/src
     
-    # 4. SFT 데이터 전처리 실행 (ChatML 통합 & 분할)
-    python -m snct.data.prepare_vessl_dataset \
-      --sft-dir "04_Finetuning(SFT)" \
-      --out-dir "data/simulated" \
-      --val-ratio 0.1
-      
-    # 5. QLoRA SFT 학습 실행
+    # 4. 학습 데이터 = 개선된 결정형 SFT셋(data/sft_v2, repo에 커밋됨).
+    #    (구) prepare_vessl_dataset 는 04_Finetuning(SFT) 문서낭독 데이터를 그대로
+    #    덤프해 결정능력을 망가뜨렸으므로 제거. data/sft_v2 는 결정형 2배 + 누설0
+    #    독립 골든셋으로 검증된 데이터다. 재생성하려면 아래 주석 해제:
+    # python -m snct.data.build_sft_v2 --out-dir data/sft_v2
+    echo "[data] train/val/golden 건수:"
+    wc -l data/sft_v2/train.jsonl data/sft_v2/val.jsonl data/sft_v2/eval_golden.jsonl
+
+    # 5. QLoRA SFT 학습 실행 (개선 데이터셋)
     python src/snct/slm/finetune.py \
       --model-id "Qwen/Qwen2.5-VL-3B-Instruct" \
-      --train-path "data/simulated/train.jsonl" \
-      --val-path "data/simulated/val.jsonl" \
+      --train-path "data/sft_v2/train.jsonl" \
+      --val-path "data/sft_v2/val.jsonl" \
       --output-dir "/workspace/output/portslm-lora"
       
     # 6. LoRA 어댑터 가중치 병합 및 Hugging Face v2 업로드
