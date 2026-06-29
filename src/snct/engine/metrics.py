@@ -89,6 +89,44 @@ def compute_plan_kpi(yard: YardState, plan: CandidatePlan) -> dict:
         if c and s and getattr(c, "dg", False) and not s.dg_allowed:
             dg_violations += 1
 
+    # ── 문헌 표준 지표 (CSPP/RL 논문 공통): overstow(OSR) · WBI · feasibility ──
+    def _order(c):
+        # discharge_order(있으면) → 없으면 POD 순서. 작을수록 먼저 양하.
+        return c.discharge_order if getattr(c, "discharge_order", 0) else POD_ORDER.get(str(c.pod).upper(), 0)
+
+    # 7) Overstow Rate(OSR, 학계 1순위): 자기 위에 '더 늦게 양하되는' 컨테이너가 있으면
+    #    그 컨테이너를 양하 시 치워야 함(재취급) → overstow.
+    overstow = 0
+    for row in row_tiers:
+        stack = sorted(
+            [(a.tier, cntr_map.get(a.container_id)) for a in plan.assignments if a.row == row],
+            key=lambda x: x[0],
+        )
+        for i in range(len(stack)):
+            ci = stack[i][1]
+            if not ci:
+                continue
+            if any(cj and _order(cj) > _order(ci) for _tj, cj in stack[i + 1:]):
+                overstow += 1
+    overstow_rate = round(overstow / max(n_assigned, 1) * 100.0, 1)
+
+    # 8) WBI(무게균형지수, 근사): 1 - 행무게 변동계수(CV). 높을수록 균형(=복원성 양호).
+    mean_w = float(np.mean(wt_vals))
+    wbi = round(max(0.0, 1.0 - (float(np.std(wt_vals)) / mean_w)), 4) if mean_w > 0 else 1.0
+
+    # 9) feasibility 위반: DG + Reefer + 컬럼중량(SOLAS) 위반 합
+    reefer_violations = 0
+    for a in plan.assignments:
+        c = cntr_map.get(a.container_id)
+        s = slot_map.get((a.bay, a.row, a.tier))
+        if c and s and getattr(c, "reefer", False) and not s.reefer_capable:
+            reefer_violations += 1
+    row_cap: dict[int, float] = {}
+    for s in yard.slots:
+        row_cap[s.row] = min(row_cap.get(s.row, float("inf")), s.max_stack_weight)
+    col_weight_violations = sum(1 for r, w in row_weights.items() if w > row_cap.get(r, float("inf")))
+    total_violations = dg_violations + reefer_violations + col_weight_violations
+
     return {
         "assign_rate": round(assign_rate, 1),
         "heavy_down_rate": round(heavy_down_rate, 1),
@@ -96,6 +134,12 @@ def compute_plan_kpi(yard: YardState, plan: CandidatePlan) -> dict:
         "row_weight_std": round(row_weight_std, 2),
         "avg_weight": round(avg_weight, 2),
         "dg_violations": dg_violations,
+        # 문헌 표준 지표
+        "overstow_rate": overstow_rate,
+        "wbi": wbi,
+        "reefer_violations": reefer_violations,
+        "col_weight_violations": col_weight_violations,
+        "total_violations": total_violations,
         "n_assigned": n_assigned,
         "n_unassigned": n_containers - n_assigned,
         "n_total": n_containers,

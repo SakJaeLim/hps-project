@@ -729,13 +729,13 @@ elif page == "평가 대시보드":
             import altair as alt
             _crows = []
             for eng, agg in _be.items():
-                _crows.append({"엔진": eng, "지표": "POD역전 위반률(%)", "값": agg.get("pod_violation_rate")})
-                _crows.append({"엔진": eng, "지표": "Row 무게편차(t)", "값": agg.get("row_weight_std")})
+                _crows.append({"엔진": eng, "지표": "Overstow률(%) ↓", "값": agg.get("overstow_rate")})
+                _crows.append({"엔진": eng, "지표": "WBI(무게균형) ↑", "값": agg.get("wbi")})
             _ch = alt.Chart(pd.DataFrame(_crows)).mark_bar().encode(
                 x=alt.X("엔진:N", title=None),
                 y=alt.Y("값:Q"),
                 color=alt.Color("엔진:N", legend=None),
-                column=alt.Column("지표:N", title="↓ 낮을수록 좋음"),
+                column=alt.Column("지표:N", title="문헌 표준지표 (OSR↓ · WBI↑)"),
             ).properties(width=130)
             st.altair_chart(_ch, use_container_width=False)
 
@@ -747,11 +747,11 @@ elif page == "평가 대시보드":
                 if not agg.get("loaded"):
                     _verd.append(f"- **{eng}**: ⚠️ PPO 미로드(greedy 폴백) — 판정 불가")
                     continue
-                _ok = ((agg.get("pod_violation_rate") or 0) <= (_g.get("pod_violation_rate") or 0)
-                       and (agg.get("row_weight_std") or 0) <= (_g.get("row_weight_std") or 0))
-                _verd.append(f"- **{eng}**: {'✅ greedy 대비 우위' if _ok else '🟡 일부/열위 (재검토)'}")
+                _ok = ((agg.get("overstow_rate") or 0) <= (_g.get("overstow_rate") or 0)
+                       and (agg.get("wbi") or 0) >= (_g.get("wbi") or 0))
+                _verd.append(f"- **{eng}**: {'✅ greedy 대비 우위 (OSR↓·WBI↑)' if _ok else '🟡 일부/열위'}")
             if _verd:
-                st.markdown("**판정 (RL vs greedy):**\n" + "\n".join(_verd))
+                st.markdown("**판정 (RL vs greedy, 표준지표 OSR·WBI):**\n" + "\n".join(_verd))
 
             # RL 정책별 학습 KPI — 라이브 재평가가 못 드러내는 BL/SF/EF 실제 성능차
             _trows = []

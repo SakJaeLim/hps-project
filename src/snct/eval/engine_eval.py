@@ -88,13 +88,13 @@ def _load_train_kpi():
 ENGINES = ["greedy", "rl_bl", "rl_sf", "rl_ef"]
 VESSELS = ["VESSEL-LV1", "VESSEL-LV2", "VESSEL-LV3", "VESSEL-LV4"]
 
-# 대시보드 표시용 KPI (키, 라벨, 높을수록 좋음)
+# 대시보드 표시용 KPI — CSPP/RL 문헌 표준 지표 (키, 라벨, 높을수록 좋음)
+#   OSR(overstow)=학계 1순위, WBI=복원성 프록시, 제약위반=feasibility, 배정률=utilization
 KPIS = [
     ("assign_rate", "배정률(%)", True),
-    ("heavy_down_rate", "Heavy-Down 준수율(%)", True),
-    ("pod_violation_rate", "POD 역전 위반률(%)", False),
-    ("row_weight_std", "Row 무게편차(t)", False),
-    ("dg_violations", "DG 제약위반(건)", False),
+    ("overstow_rate", "Overstow률(%)", False),
+    ("wbi", "WBI(무게균형)", True),
+    ("total_violations", "제약위반(건)", False),
 ]
 
 
@@ -140,9 +140,9 @@ def run_engine_eval(engines, tasks, out_json=None):
             json.dump(summary, f, ensure_ascii=False, indent=2)
         print(f"\nSaved → {out_json}")
 
-    # 합격 판정: RL 이 greedy 대비 핵심 KPI(POD역전·무게편차) 우위인지
+    # 합격 판정: RL 이 greedy 대비 문헌 표준 핵심지표(OSR↓·WBI↑) 우위인지
     g = by_engine.get("greedy", {})
-    print("\n=== 판정 (RL vs greedy, 낮을수록 좋은 KPI) ===")
+    print("\n=== 판정 (RL vs greedy, 표준지표: OSR↓·WBI↑) ===")
     for eng in engines:
         if not eng.startswith("rl"):
             continue
@@ -150,11 +150,11 @@ def run_engine_eval(engines, tasks, out_json=None):
         if not e.get("loaded"):
             print(f"  {eng}: ⚠️ PPO 미로드(greedy 폴백) — 판정 불가")
             continue
-        better_pod = (e["pod_violation_rate"] or 0) <= (g.get("pod_violation_rate") or 0)
-        better_bal = (e["row_weight_std"] or 0) <= (g.get("row_weight_std") or 0)
-        verdict = "✅ 우위" if (better_pod and better_bal) else "🟡 일부/열위"
-        print(f"  {eng}: POD역전 {e['pod_violation_rate']} vs {g.get('pod_violation_rate')}, "
-              f"무게편차 {e['row_weight_std']} vs {g.get('row_weight_std')} → {verdict}")
+        better_osr = (e.get("overstow_rate") or 0) <= (g.get("overstow_rate") or 0)
+        better_wbi = (e.get("wbi") or 0) >= (g.get("wbi") or 0)
+        verdict = "✅ 우위" if (better_osr and better_wbi) else "🟡 일부/열위"
+        print(f"  {eng}: OSR {e.get('overstow_rate')} vs {g.get('overstow_rate')}, "
+              f"WBI {e.get('wbi')} vs {g.get('wbi')} → {verdict}")
 
     # RL 정책별 학습 KPI (라이브가 못 드러내는 실제 차이)
     if train_kpi:
