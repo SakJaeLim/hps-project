@@ -41,31 +41,44 @@ def main(out_dir, n_aug):
     out_dir = out_dir or os.path.join(repo, "data", "sft_v2")
     os.makedirs(out_dir, exist_ok=True)
 
-    # 1) seed 로드 + 골든셋용 held-out 분리 (학습/증강에서 제외)
+    # 1) seed 로드 — QA/진단은 v1 과 동일하게 '전체' 학습(굶주림 방지 → v2 ≥ v1)
     stow = g.load_jsonl(g.STOWAGE_SEED_PATH)
     saf = g.load_jsonl(g.SAFETY_SEED_PATH)
-    stow_held, stow_keep = _split_holdout(stow, {"regulation_qa": 5, "violation_diagnosis": 5}, rng)
-    saf_held, saf_keep = _split_holdout(saf, {"safety_regulation_qa": 5, "hazard_diagnosis": 5}, rng)
-    print(f"Seeds: stowage {len(stow)} (held {len(stow_held)}), safety {len(saf)} (held {len(saf_held)})")
+    print(f"Seeds: stowage {len(stow)}, safety {len(saf)}")
 
     # 2) 결정형: v1 CSV 실배정(전량) + 엔진 증강
     recs_v1 = g.generate_recommendations_from_csv(g.SLOT_CSV_PATH)
     recs_aug = gen_examples(n_aug, engine="greedy", seed=SEED, id_prefix="AUG")
     print(f"Decisions: v1_csv {len(recs_v1)} + aug {len(recs_aug)} = {len(recs_v1)+len(recs_aug)}")
 
-    # 3) QA/진단: held-out 제외한 seed만 증강 (누설 차단) + 그 raw seed
-    augmented = g.augment_seeds_by_paraphrasing(stow_keep, saf_keep)
+    # 3) QA/진단: '전체' seed 패러프레이즈 증강 (v1 커버리지 복원)
+    augmented = g.augment_seeds_by_paraphrasing(stow, saf)
 
     # 4) 학습 풀 조립 + 9:1 train/val
-    train_pool = recs_v1 + recs_aug + augmented + stow_keep + saf_keep
+    train_pool = recs_v1 + recs_aug + augmented + stow + saf
     rng.shuffle(train_pool)
     n_val = int(len(train_pool) * 0.1)
     val_set = train_pool[:n_val]
     train_set = train_pool[n_val:]
 
-    # 5) 독립 골든셋: 다른 시드(777) 결정 10 + held-out QA/진단
+    # 5) 골든셋: 결정형은 seed 777 독립(v1·v2 모두 미학습)→honest, QA/진단은 seed
+    #    대표표본(학습에도 포함 — v1 도 같은 seed 학습했으므로 동일조건 공정비교).
     gold_dec = gen_examples(10, engine="greedy", seed=777, id_prefix="GOLD")
-    golden = gold_dec + stow_held + saf_held
+
+    def _sample(seeds, types, k):
+        by = collections.defaultdict(list)
+        for s in seeds:
+            by[s["type"]].append(s)
+        out = []
+        for t in types:
+            items = list(by.get(t, []))
+            rng.shuffle(items)
+            out += items[:k]
+        return out
+
+    gold_qa = (_sample(stow, ["regulation_qa", "violation_diagnosis"], 5)
+               + _sample(saf, ["safety_regulation_qa", "hazard_diagnosis"], 5))
+    golden = gold_dec + gold_qa
     rng.shuffle(golden)
 
     def save(data, name):
@@ -80,10 +93,11 @@ def main(out_dir, n_aug):
     save(val_set, "val.jsonl")
     save(golden, "eval_golden.jsonl")
 
-    # 누설 점검: 골든셋 input 이 학습셋에 존재하는지
+    # 누설 점검: 결정형 골든(독립)은 학습에 없어야 honest. QA/진단은 의도적 공유.
     train_inputs = {d["input"] for d in train_set + val_set}
-    leak = [d for d in golden if d["input"] in train_inputs]
-    print(f"Leakage check — golden inputs also in train: {len(leak)} (0이어야 정상)")
+    dec_leak = sum(1 for d in gold_dec if d["input"] in train_inputs)
+    print(f"결정형 골든 누설(0이어야 honest): {dec_leak}")
+    print("QA/진단 골든은 학습에도 포함 — v1·v2 동일조건 공정비교용(결정형이 변별점).")
 
 
 if __name__ == "__main__":
