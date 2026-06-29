@@ -29,7 +29,7 @@ def _pick(rng, variants):
     return variants[rng.randrange(len(variants))]
 
 
-def make_scenario(rng, idx):
+def make_scenario(rng, idx, id_prefix="AUG"):
     """다양한 단일 베이 YardState 생성 (행6~10 × tier4~6, DG/Reefer 슬롯 포함)."""
     n_rows = rng.randint(6, 10)
     n_tiers = rng.randint(4, 6)
@@ -56,7 +56,7 @@ def make_scenario(rng, idx):
         is_rf = (not is_dg) and rng.random() < 0.15
         ctype = "DG" if is_dg else ("RF" if is_rf else "GP")
         queue.append(Container(
-            id=f"AUG{idx:04d}-C{i:02d}",
+            id=f"{id_prefix}{idx:04d}-C{i:02d}",
             weight_ton=weight,
             size=_pick(rng, SIZES),
             type=ctype,
@@ -89,32 +89,18 @@ def build_rationale(rng, c, slot, col_cum_weight):
             "일반화물(GP)로 DG/Reefer 지정 제약이 없어 배치 자유도 높음.",
         ]))
 
-    # 2) POD 그룹핑 / 양하순서 — 실제 tier(하부/상부)와 모순되지 않게 일관 서술.
-    #    근거리항이라도 고중량이면 Heavy-Down(복원성)이 POD보다 우선 → 그 우선순위를 명시.
+    # 2) POD 그룹핑 / 양하순서 — 방향 중립 서술(tier 방향은 무게 근거가 전담)로 모순 차단.
     far = POD_ORDER[c.pod] >= 4
-    is_low = slot.tier <= 1
-    if is_low:
-        if far:
-            reasons.append(_pick(rng, [
-                f"POD 그룹핑 — {c.pod}은 원거리(후순위) 양하항이라 하부 적재가 양하 역순(overstow) 방지에 부합.",
-                f"{c.pod}은 후순위 양하항 → 하단 배치로 먼저 내릴 화물과의 간섭을 차단.",
-            ]))
-        else:
-            reasons.append(_pick(rng, [
-                f"{c.pod}은 근거리항이나 고중량이라 복원성(Heavy-Down)을 POD 우선순위보다 우선 적용해 하부 배치.",
-                f"POD상으론 상부가 유리하나 중량 안전제약이 우선 → {c.pod} 화물을 하단에 배치.",
-            ]))
+    if far:
+        reasons.append(_pick(rng, [
+            f"POD 그룹핑 — {c.pod}은 원거리(후순위) 양하항으로, 동일 POD 묶음과 양하 역순(overstow) 방지를 고려한 배치.",
+            f"{c.pod}은 후순위 양하항 → 동일 POD를 묶어 후순위 반출 시 간섭을 최소화.",
+        ]))
     else:
-        if far:
-            reasons.append(_pick(rng, [
-                f"{c.pod}은 원거리항이나 경량이라 상부 여유공간을 활용(하부는 고중량용으로 확보).",
-                f"중량 여유가 있어 {c.pod}을 상부에 두되 동일 POD 묶음을 유지.",
-            ]))
-        else:
-            reasons.append(_pick(rng, [
-                f"POD 그룹핑 — {c.pod}은 근거리 첫 양하항이라 상부 배치로 우선 양하 가능.",
-                f"{c.pod}은 선순위 양하항 → 상단 배치로 재취급 없이 즉시 반출.",
-            ]))
+        reasons.append(_pick(rng, [
+            f"POD 그룹핑 — {c.pod}은 근거리(선순위) 양하항으로, 우선 반출과 동일 POD 묶음을 고려한 배치.",
+            f"{c.pod}은 선순위 양하항 → 동일 POD를 묶어 우선 양하 동선을 단순화.",
+        ]))
 
     # 3) 중량(Heavy-Down / Light-Up) — 고중량 강조
     if c.weight_ton >= 20.0:
@@ -151,13 +137,13 @@ def build_rationale(rng, c, slot, col_cum_weight):
     return reasons
 
 
-def gen_examples(n_target, engine="greedy", seed=42):
+def gen_examples(n_target, engine="greedy", seed=42, id_prefix="AUG"):
     rng = random.Random(seed)
     out = []
     scen_idx = 0
     strat = get_strategy(engine)  # greedy = 어디서나 동작, rl_* 는 서버(체크포인트 필요)
     while len(out) < n_target:
-        yard = make_scenario(rng, scen_idx)
+        yard = make_scenario(rng, scen_idx, id_prefix=id_prefix)
         scen_idx += 1
         try:
             plan = strat.plan(yard)
