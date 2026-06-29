@@ -752,6 +752,20 @@ elif page == "평가 대시보드":
                 _verd.append(f"- **{eng}**: {'✅ greedy 대비 우위' if _ok else '🟡 일부/열위 (재검토)'}")
             if _verd:
                 st.markdown("**판정 (RL vs greedy):**\n" + "\n".join(_verd))
+
+            # RL 정책별 학습 KPI — 라이브 재평가가 못 드러내는 BL/SF/EF 실제 성능차
+            _trows = []
+            for eng, agg in _be.items():
+                tk = agg.get("train_kpi")
+                if tk:
+                    _trows.append({"정책": eng.replace("rl_", "").upper(),
+                                   "reward": tk.get("reward"), "WBI(무게균형)": tk.get("wbi"),
+                                   "OSR(재취급률)": tk.get("osr"), "PSR(POD분리)": tk.get("psr"),
+                                   "CWVR(컬럼중량위반)": tk.get("cwvr")})
+            if _trows:
+                st.markdown("#### RL 정책별 학습 KPI (실제 성능차)")
+                st.caption("라이브 재평가는 쉬운 야드라 변별이 안 되지만, 학습 시점 지표는 정책 차이를 보여줌. reward·WBI 높을수록, OSR·CWVR 낮을수록 우수 (EF가 WBI 최고·CWVR 최소).")
+                st.dataframe(pd.DataFrame(_trows).set_index("정책"), use_container_width=True)
         except Exception as _e2:
             st.warning(f"engine_eval.json 로드 실패: {_e2}")
     else:

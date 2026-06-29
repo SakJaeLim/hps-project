@@ -46,7 +46,8 @@
       "row_weight_std": 5.1,
       "dg_violations": 0,
       "loaded": false,
-      "is_rl": false
+      "is_rl": false,
+      "train_kpi": null
     },
     "rl_bl": {
       "assign_rate": 100.0,
@@ -55,7 +56,14 @@
       "row_weight_std": 5.1,
       "dg_violations": 0,
       "loaded": false,
-      "is_rl": true
+      "is_rl": true,
+      "train_kpi": {
+        "reward": 1467.912,
+        "wbi": 0.9357,
+        "osr": 0.0,
+        "psr": 0.0,
+        "cwvr": 0.08
+      }
     },
     "rl_sf": {
       "assign_rate": 100.0,
@@ -64,7 +72,14 @@
       "row_weight_std": 5.1,
       "dg_violations": 0,
       "loaded": false,
-      "is_rl": true
+      "is_rl": true,
+      "train_kpi": {
+        "reward": 1427.998,
+        "wbi": 0.9298,
+        "osr": 0.0,
+        "psr": 0.0,
+        "cwvr": 0.08
+      }
     },
     "rl_ef": {
       "assign_rate": 100.0,
@@ -73,7 +88,14 @@
       "row_weight_std": 5.1,
       "dg_violations": 0,
       "loaded": false,
-      "is_rl": true
+      "is_rl": true,
+      "train_kpi": {
+        "reward": 1459.868,
+        "wbi": 0.9519,
+        "osr": 0.0,
+        "psr": 0.0,
+        "cwvr": 0.05
+      }
     }
   },
   "detail": {
