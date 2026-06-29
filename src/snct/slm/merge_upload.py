@@ -5,7 +5,33 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
+def _clean_token(val):
+    """토큰 문자열의 앞뒤 공백/개행 제거. 비ASCII 가 섞였으면(잘못 붙여넣음) None 반환."""
+    if not val:
+        return None
+    val = val.strip()
+    try:
+        val.encode("latin-1")
+    except UnicodeEncodeError:
+        return None
+    return val or None
+
+def _sanitize_hf_token_env():
+    """베이스 모델/프로세서 다운로드(public)는 토큰이 필요 없다. env 의 HF 토큰에
+    비ASCII 가 섞여 있으면 Authorization 헤더 latin-1 인코딩에서 크래시하므로 비운다."""
+    for var in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
+        raw = os.environ.get(var)
+        if not raw:
+            continue
+        clean = _clean_token(raw)
+        if clean is None:
+            print(f"[warn] {var} 에 비ASCII 문자가 있어 다운로드를 위해 env 에서 제거합니다.")
+            os.environ.pop(var, None)
+        elif clean != raw:
+            os.environ[var] = clean
+
 def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=None):
+    _sanitize_hf_token_env()  # public 베이스 모델 다운로드 크래시 방지
     is_vl = "vl" in base_model_id.lower()
     if is_vl:
         print("VL model detected, using AutoModelForVision2Seq...")
@@ -90,9 +116,11 @@ def merge(base_model_id, adapter_path, output_dir, upload_repo=None, hf_token=No
         from huggingface_hub import HfApi
         print(f"Uploading merged model to Hugging Face: {upload_repo}")
         api = HfApi()
-        token = hf_token or os.getenv("HF_TOKEN")
+        token = _clean_token(hf_token) or _clean_token(os.getenv("HF_TOKEN"))
         if not token:
-            print("Error: Hugging Face token not found. Set HF_TOKEN environment variable or pass --hf-token.")
+            print("Error: 유효한 Hugging Face 토큰이 없습니다. (--hf-token 또는 HF_TOKEN env)")
+            print("       토큰에 비ASCII(한글 등)/공백이 섞여 있으면 무효 처리됩니다. "
+                  "VESSL 시크릿의 HF_TOKEN 값을 'hf_...' 순수 ASCII 로 다시 설정하세요.")
             return
 
         api.create_repo(token=token, repo_id=upload_repo, repo_type="model", private=True, exist_ok=True)

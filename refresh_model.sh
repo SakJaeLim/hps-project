@@ -33,7 +33,7 @@ unset HF_HOME   # 서비스가 ~/.cache/huggingface/hub 만 보므로 거기로 
 rm -rf "$CACHE"
 
 echo -e "\n[2/4] 새 모델 다운로드..."
-huggingface-cli download "$REPO" --token "$HF_TOKEN"
+hf download "$REPO" --token "$HF_TOKEN"
 
 echo -e "\n[3/4] 다운로드 검증 (현재 스냅샷 해시)..."
 if [ -f "$CACHE/refs/main" ]; then

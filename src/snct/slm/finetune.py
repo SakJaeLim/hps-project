@@ -12,6 +12,27 @@ from trl import SFTConfig, SFTTrainer
 random.seed(42)
 torch.manual_seed(42)
 
+def sanitize_hf_token_env():
+    """HF 토큰 env 에 비ASCII/공백이 섞이면 HTTP 헤더(Authorization: Bearer ...)를
+    latin-1 로 인코딩할 때 UnicodeEncodeError 가 나며 다운로드가 통째로 실패한다.
+    베이스 모델은 public 이므로 오염된 토큰은 비우고 익명 다운로드로 진행한다.
+    (private repo 업로드용 토큰은 merge_upload.py 가 --hf-token 으로 따로 받는다)"""
+    for var in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
+        val = os.environ.get(var)
+        if not val:
+            continue
+        clean = val.strip()
+        try:
+            clean.encode("latin-1")
+        except UnicodeEncodeError:
+            print(f"[warn] {var} 에 비ASCII 문자가 있어 베이스 모델 다운로드를 막습니다 "
+                  f"→ 비우고 익명(공개) 다운로드로 진행합니다. (VESSL 시크릿 점검 필요)")
+            os.environ.pop(var, None)
+            continue
+        if clean != val:
+            os.environ[var] = clean
+            print(f"[info] {var} 의 앞뒤 공백/개행을 정리했습니다.")
+
 def remove_think_blocks(text):
     return str(text or "").replace("<think>\n\n</think>\n\n", "").strip()
 
@@ -38,7 +59,9 @@ def load_jsonl_dataset(path):
 def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruct", smoke_run=False, use_qlora=True):
     has_cuda = torch.cuda.is_available()
     print(f"CUDA Available: {has_cuda}")
-    
+
+    sanitize_hf_token_env()  # 오염된 HF 토큰 env 로 인한 다운로드 크래시 방지
+
     print(f"Loading tokenizer: {model_id}")
     tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
