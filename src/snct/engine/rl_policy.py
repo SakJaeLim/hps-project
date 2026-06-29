@@ -244,6 +244,16 @@ class RLStrategy(StowageStrategy):
         ]).astype(np.float32)
 
     def plan(self, yard: YardState) -> CandidatePlan:
+        # 재생성(탐색) 모드: SB3 는 PPO.load 시 RNG 를 동일하게 복원하므로, 표집을 해도
+        # 매 요청 같은 난수열 → 같은 계획이 나온다. explore 일 때만 요청마다 새 시드를
+        # 주입해 매 실행 다른 대안이 나오게 한다. (재현성 모드 argmax 에는 영향 없음)
+        if self.model is not None and not self.deterministic:
+            try:
+                seed = int.from_bytes(os.urandom(4), "little")
+                self.model.set_random_seed(seed)
+            except Exception as seed_err:
+                print(f"[RLStrategy] set_random_seed failed: {seed_err}")
+
         # Sort containers to match curriculum ordering (POD descending, weight descending)
         containers = list(yard.queue)
         def get_sort_key(c):
