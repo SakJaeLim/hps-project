@@ -400,16 +400,21 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.markdown("### 전역 설정")
-    
+    st.markdown("### 생성 설정 (도메인 Q&A)")
+    st.caption("아래 설정은 '도메인 Q&A' 화면의 SLM 응답 생성에 적용됩니다. (모델 비교·적재·평가 화면은 자체 설정 사용)")
+
     st.session_state.active_model = st.selectbox(
         "사용 모델 선택",
-        ["PortSLM (Fine-Tuned)", "Qwen2.5-VL-3B (Base)", "PortSLM (INT4 Quantized)"]
+        ["PortSLM (Fine-Tuned)", "Qwen2.5-VL-3B (Base)"]
     )
-    
-    st.session_state.temperature = st.slider("Temperature", 0.0, 1.5, st.session_state.temperature, 0.1)
+
+    st.session_state.temperature = st.slider(
+        "Temperature", 0.0, 1.5, st.session_state.temperature, 0.1,
+        help="0 = 결정론(greedy, 재현성). 높을수록 다양·창의적.")
     st.session_state.max_tokens = st.slider("Max Tokens", 64, 1024, st.session_state.max_tokens, 64)
-    st.session_state.top_p = st.slider("Top-p", 0.1, 1.0, st.session_state.top_p, 0.05)
+    st.session_state.top_p = st.slider(
+        "Top-p", 0.1, 1.0, st.session_state.top_p, 0.05,
+        help="표집(temperature>0) 시 누적확률 상위 p 토큰만 후보. temperature=0이면 무효.")
 
 # Render Topbar Header
 model_short = "PortSLM" if "Fine-Tuned" in st.session_state.active_model else "Base" if "Base" in st.session_state.active_model else "INT4"

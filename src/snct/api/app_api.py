@@ -110,7 +110,8 @@ def _find_local_model_path(hf_model_id: str) -> str | None:
     return os.path.join(snap_dir, snapshots[-1])
 
 
-def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens: int = 512) -> str | None:
+def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens: int = 512,
+                        temperature: float = 0.0, top_p: float = 0.9) -> str | None:
     """
     Run inference using a locally cached HuggingFace model.
     """
@@ -176,13 +177,18 @@ def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens
         else:
             inputs = proc_or_tok(prompt, return_tensors="pt").to(device)
 
+        # temperature>0 이면 표집(sampling) — Temperature/Top-p 슬라이더가 실제로 반영됨.
+        # 0 이면 greedy(결정론) — /compare 등 기본 호출은 재현성 유지.
+        gen_kwargs = dict(
+            max_new_tokens=max_new_tokens,
+            pad_token_id=proc_or_tok.eos_token_id if hasattr(proc_or_tok, 'eos_token_id') else None,
+        )
+        if temperature and temperature > 0.0:
+            gen_kwargs.update(do_sample=True, temperature=float(temperature), top_p=float(top_p))
+        else:
+            gen_kwargs.update(do_sample=False)
         with torch.no_grad():
-            output_ids = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                do_sample=False,
-                pad_token_id=proc_or_tok.eos_token_id if hasattr(proc_or_tok, 'eos_token_id') else None,
-            )
+            output_ids = model.generate(**inputs, **gen_kwargs)
 
         # Decode only the newly generated tokens
         input_len = inputs["input_ids"].shape[1]
@@ -272,7 +278,8 @@ def generate(req: GenerateRequest) -> dict:
     source = "mock"
 
     # Priority 1: local cached model (works even when internet is blocked)
-    ans = run_local_inference(req.prompt, req.model, max_new_tokens=req.max_tokens)
+    ans = run_local_inference(req.prompt, req.model, max_new_tokens=req.max_tokens,
+                              temperature=req.temperature, top_p=req.top_p)
     if ans:
         source = "local_model"
     else:
