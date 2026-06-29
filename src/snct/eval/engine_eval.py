@@ -25,30 +25,31 @@ ENGINE_TO_POLICY = {"rl_bl": "BL", "rl_sf": "SF", "rl_ef": "EF"}
 
 
 def make_hard_scenarios(n, seed=123):
-    """변별력 있는 '빡센' 시나리오 생성 — greedy가 흔들리도록 제약을 타이트하게.
-    10×10 격자 + 컨테이너 다수 + 컬럼중량 캡 빡빡 + DG/Reefer 슬롯 1행씩만 + 고중량 포함."""
+    """학습 분포 내(in-distribution) '빡센' 시나리오 — RL을 공정하게 평가하기 위함.
+
+    OOD 함정 제거:
+      · GP만 사용 (RL 관측 obs 에 DG/Reefer 항목이 없어 인지 불가 → 제외)
+      · 무게 10~20t (학습 분포 범위, MAX_WT=20 정규화와 일치)
+      · 컬럼중량 캡 145 (rl obs 의 MAX_COL_WT=145 와 일치 → RL이 캡을 인지)
+    변별력은 '빽빽한 패킹'에서 나옴: 10×10 격자를 50~80개로 채워
+    무게균형(WBI)·POD 그룹핑·145t 컬럼캡 트레이드오프를 강제한다(=RL 학습목표 영역)."""
     rng = random.Random(seed)
     tasks = []
     for i in range(n):
         n_rows, n_tiers = 10, 10
-        dg_rows, reefer_rows = {0}, {1}           # DG/Reefer 슬롯을 1행씩만 → 제약 압박
-        col_cap = rng.choice([55.0, 60.0, 65.0])  # 행(컬럼) 누적중량 캡 빡빡 → 무게 분산 강제
         slots = [
-            Slot(bay=1, row=r, tier=t, max_stack_weight=col_cap,
-                 dg_allowed=(r in dg_rows), reefer_capable=(r in reefer_rows))
+            Slot(bay=1, row=r, tier=t, max_stack_weight=145.0,
+                 dg_allowed=True, reefer_capable=True)
             for r in range(n_rows) for t in range(n_tiers)
         ]
-        n_ctn = rng.randint(35, 55)               # 격자의 35~55% 채움 → 패킹 압박
+        n_ctn = rng.randint(50, 80)               # 빽빽이 → 균형·캡·POD 압박
         queue = []
         for j in range(n_ctn):
             pod = rng.choice(PODS)
-            w = round(rng.uniform(10.0, 26.0), 1)  # 고중량(>20t) 포함
-            is_dg = rng.random() < 0.18
-            is_rf = (not is_dg) and rng.random() < 0.18
+            w = round(rng.uniform(10.0, 20.0), 1)  # 학습 분포 내
             queue.append(Container(
-                id=f"H{i:02d}-{j:02d}", weight_ton=w, size="40",
-                type="DG" if is_dg else ("RF" if is_rf else "GP"),
-                pod=pod, dg=is_dg, reefer=is_rf, discharge_order=POD_ORDER[pod],
+                id=f"H{i:02d}-{j:02d}", weight_ton=w, size="40", type="GP",
+                pod=pod, dg=False, reefer=False, discharge_order=POD_ORDER[pod],
             ))
         tasks.append((f"HARD{i:02d}", YardState(slots=slots, queue=queue)))
     return tasks
