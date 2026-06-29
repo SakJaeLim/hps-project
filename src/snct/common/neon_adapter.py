@@ -80,7 +80,10 @@ class NeonAdapter:
             if conditions:
                 query += " WHERE " + " AND ".join(conditions)
                 
-            df = pd.read_sql_query(query, con=engine, params=params)
+            # text() 로 감싸야 :policy/:round_id 명명 파라미터가 SQLAlchemy 에서
+            # 드라이버(psycopg2) 규격으로 변환된다. 미적용 시 psycopg2 가 ':' 를
+            # 문법 오류로 보고 매 쿼리 실패 → CSV 폴백(동작은 하나 로그 오염).
+            df = pd.read_sql_query(text(query), con=engine, params=params)
             return df
         except Exception as e:
             print(f"[Neon Query Fail] Table '{table_name}' : {e}")
