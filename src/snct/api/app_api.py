@@ -339,6 +339,17 @@ def compare(req: CompareRequest) -> dict:
     }
 
 
+def _vessel_to_round(vessel_id: str | None) -> int | None:
+    """Vessel ID(예: VESSEL-LV4)에서 커리큘럼 라운드(1~4)를 추출. 매칭 실패 시 None.
+    대시보드의 Level N(=라운드 N) 선택이 vessel_id 로 전달되므로 이를 배치 결과 조인키로 사용."""
+    import re
+    m = re.search(r"(\d+)", vessel_id or "")
+    if not m:
+        return None
+    r = int(m.group(1))
+    return r if 1 <= r <= 4 else None
+
+
 @app.post("/plan")
 def plan_endpoint(req: PlanRequest):
     """Full pipeline: engine plan → ontology validate → explain with evidence."""
@@ -360,7 +371,7 @@ def plan_endpoint(req: PlanRequest):
         yard_state = provider.get_yard_state(req.vessel_id)
         cntr_lookup = {c.id: c for c in yard_state.queue}
 
-        return {
+        resp = {
             "assignments": [
                 {"container_id": a.container_id, "bay": a.bay, "row": a.row, "tier": a.tier,
                  "weight_ton": cntr_lookup[a.container_id].weight_ton if a.container_id in cntr_lookup else 0.0,
@@ -382,6 +393,50 @@ def plan_endpoint(req: PlanRequest):
             "checks": recommendation.checks,
             "latency_ms": latency,
         }
+
+        # ── 라이브 KPI (엔진 무관: greedy/RL 동일하게 실제 계획에서 계산) ──
+        try:
+            from snct.engine.metrics import compute_plan_kpi
+            resp["kpi_live"] = compute_plan_kpi(yard_state, recommendation.plan)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            resp["kpi_live"] = None
+
+        # ── RL 전용: 보상 귀인(R1~R15)·근거·faithfulness (배치 학습 결과에서 융합) ──
+        resp["rl_decision"] = None
+        resp["faithfulness"] = None
+        resp["faithfulness_detail"] = None
+        if (req.engine or "").startswith("rl"):
+            policy = {"rl_sf": "SF", "rl_ef": "EF"}.get(req.engine, "BL")
+            round_id = _vessel_to_round(req.vessel_id)
+            if round_id is not None:
+                try:
+                    from snct.data.sources.rl_results import RLResultStore
+                    from snct.eval.faithfulness import score_decision
+                    decision = RLResultStore().get_decision(policy, round_id)
+                    resp["rl_decision"] = {
+                        "policy": decision.policy,
+                        "round_id": decision.round_id,
+                        "reward_total": decision.reward_total,
+                        "top_contributions": [[t, v] for t, v in decision.top_contributions],
+                        "kpi_batch": decision.kpi,
+                        "doc_refs": decision.doc_refs,
+                        "rationale": decision.rationale,
+                    }
+                    # 근거 충실도: 정규 근거 설명(grounded)의 수치 환각 검사 (text 미지정 → 규칙기반 설명 생성)
+                    rep = score_decision(decision)
+                    resp["faithfulness"] = rep["faithfulness"]
+                    resp["faithfulness_detail"] = {
+                        "n_numbers": rep["n_numbers"],
+                        "n_unsupported": rep["n_unsupported"],
+                        "doc_refs_cited": rep["doc_refs_cited"],
+                    }
+                except Exception:
+                    import traceback
+                    traceback.print_exc()
+
+        return resp
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -725,48 +725,112 @@ elif page == "적재 계획 (Planning)":
             if res:
                 st.success(f"파이프라인 실행 완료 (소요시간: {res.get('latency_ms', 0)}ms)")
                 
-                # xAI 신뢰도 게이지 점수 파싱
-                checks = res.get("checks", [])
-                faith_val = 100.0
-                for check in checks:
-                    if "faithfulness=" in check:
-                        try:
-                            faith_val = float(check.split("=")[1]) * 100.0
-                        except:
-                            pass
-                
-                score_color = "#38a169" if faith_val >= 90 else "#dd6b20" if faith_val >= 80 else "#e53e3e"
-                badge_text = "🟢 우수 (사실 확인 통과)" if faith_val >= 90 else "🟡 양호 (미세 오차)" if faith_val >= 80 else "🔴 주의 (확인 필요)"
-                
+                # ── xAI 패널: 엔진 무관 라이브 KPI + (RL 전용) 보상귀인·근거 충실도 ──
+                rl_dec = res.get("rl_decision")
+                is_rl = rl_dec is not None
+                faith = res.get("faithfulness")        # RL: 실측 / greedy: None
+                fd = res.get("faithfulness_detail") or {}
+                kl = res.get("kpi_live") or {}
+
+                # 1) 설명 신뢰 지수 (RL 실측, greedy 는 N/A)
+                if faith is not None:
+                    faith_val = float(faith) * 100.0
+                    score_color = "#38a169" if faith_val >= 90 else "#dd6b20" if faith_val >= 80 else "#e53e3e"
+                    badge_text = "🟢 우수 (사실 확인 통과)" if faith_val >= 90 else "🟡 양호 (미세 오차)" if faith_val >= 80 else "🔴 주의 (확인 필요)"
+                    faith_disp = f"{faith_val:.0f}%"
+                else:
+                    score_color = "#718096"
+                    badge_text = "기준선(Greedy) · 학습 근거 없음"
+                    faith_disp = "N/A"
+
+                # 2) 팩트 체크 검증표 (실측: 환각 수치검사 + 라이브 KPI 기반)
+                def _chk_row(label, ok, note):
+                    color = "#38a169" if ok else "#e53e3e"
+                    mark = "✓" if ok else "✗"
+                    return (f'<tr style="border-bottom:1px solid #edf2f7;">'
+                            f'<td style="padding:6px 0;color:{color};"><b>{mark}</b></td>'
+                            f'<td style="color:#2d3748;">{label}</td>'
+                            f'<td style="text-align:right;color:{color};font-weight:600;">{note}</td></tr>')
+
+                if is_rl:
+                    n_num = fd.get("n_numbers", 0); n_uns = fd.get("n_unsupported", 0)
+                    rows_html = (
+                        _chk_row("설명 수치 근거 일치 (환각 검사)", n_uns == 0, f"{n_num - n_uns}/{n_num}")
+                        + _chk_row("규정 인용 정합성 (SOLAS/IMDG)", bool(fd.get("doc_refs_cited")), "Pass" if fd.get("doc_refs_cited") else "Check")
+                        + _chk_row("DG 제약 위반 없음", kl.get("dg_violations", 0) == 0, f"{kl.get('dg_violations', 0)}건")
+                        + _chk_row("POD 역전 위반률", kl.get("pod_violation_rate", 0) == 0, f"{kl.get('pod_violation_rate', 0)}%")
+                    )
+                else:
+                    rows_html = (
+                        _chk_row("배정 완료율", kl.get("n_unassigned", 1) == 0, f"{kl.get('assign_rate', 0)}%")
+                        + _chk_row("DG 제약 위반 없음", kl.get("dg_violations", 0) == 0, f"{kl.get('dg_violations', 0)}건")
+                        + _chk_row("POD 역전 위반률", kl.get("pod_violation_rate", 0) == 0, f"{kl.get('pod_violation_rate', 0)}%")
+                        + _chk_row("Heavy-Down 준수율", kl.get("heavy_down_rate", 0) >= 90, f"{kl.get('heavy_down_rate', 0)}%")
+                    )
+
                 col_score, col_chk = st.columns([1, 2])
                 with col_score:
                     st.markdown(f"""
                     <div class="card" style="border-top: 5px solid {score_color}; text-align: center; padding: 25px;">
                         <h4 style="margin: 0; color: #1F3864 !important;">설명 신뢰 지수</h4>
-                        <div style="font-size: 48px; font-weight: 800; color: {score_color}; margin: 15px 0;">{faith_val:.0f}%</div>
+                        <div style="font-size: 48px; font-weight: 800; color: {score_color}; margin: 15px 0;">{faith_disp}</div>
                         <span class="badge" style="background-color: {score_color};">{badge_text}</span>
                     </div>
                     """, unsafe_allow_html=True)
-                    
                 with col_chk:
                     st.markdown(f"""
                     <div class="card" style="border-top: 5px solid #1F3864; padding: 18px;">
                         <h4 style="margin: 0 0 10px 0;">🕵️ 팩트 체크 검증 내역 (Fact Validation)</h4>
-                        <table style="width:100%; font-size:13px; border-collapse:collapse;">
-                            <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding:6px 0; color:#38a169;"><b>✓</b></td><td style="color:#2d3748;">중량 정보 정합성 (WBI 대조)</td><td style="text-align:right; color:#38a169; font-weight:600;">Pass</td></tr>
-                            <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding:6px 0; color:#38a169;"><b>✓</b></td><td style="color:#2d3748;">적재 수직 관계 일치율 (Neo4j 대조)</td><td style="text-align:right; color:#38a169; font-weight:600;">Pass</td></tr>
-                            <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding:6px 0; color:#38a169;"><b>✓</b></td><td style="color:#2d3748;">안전 법률 인용 정합성 (SOLAS/IMDG)</td><td style="text-align:right; color:#38a169; font-weight:600;">Pass</td></tr>
-                            <tr><td style="padding:6px 0; color:#38a169;"><b>✓</b></td><td style="color:#2d3748;">제약 위반 건수 일치 여부 (RDB 대조)</td><td style="text-align:right; color:#38a169; font-weight:600;">Pass</td></tr>
-                        </table>
+                        <table style="width:100%; font-size:13px; border-collapse:collapse;">{rows_html}</table>
                     </div>
                     """, unsafe_allow_html=True)
 
+                # 3) 라이브 적재 품질 KPI 카드 (엔진 무관)
+                if kl:
+                    st.markdown("#### 📐 적재 품질 지표 (라이브 계산)")
+                    mc = st.columns(4)
+                    mc[0].metric("배정률", f"{kl.get('assign_rate', 0)}%")
+                    mc[1].metric("Heavy-Down 준수율", f"{kl.get('heavy_down_rate', 0)}%")
+                    mc[2].metric("POD 역전 위반률", f"{kl.get('pod_violation_rate', 0)}%")
+                    mc[3].metric("Row 무게편차", f"{kl.get('row_weight_std', 0)} t")
+
+                # 4) 의사결정 Rationale (RL=학습 근거, greedy=파이프라인 설명)
+                if is_rl and rl_dec.get("rationale"):
+                    rationale_text = "\n".join(rl_dec["rationale"])
+                else:
+                    rationale_text = res.get("rationale", "설명 내용이 없습니다.")
                 st.markdown(f"""
                 <div class="card" style="border-top: 5px solid #1F3864;">
                     <h4 style="color: #1F3864 !important;">💡 지능형 의사결정 Rationale (설명서)</h4>
-                    <div style="font-size: 14.5px; color: #2d3748; line-height: 1.7; white-space: pre-wrap;">{res.get('rationale', '설명 내용이 없습니다.')}</div>
+                    <div style="font-size: 14.5px; color: #2d3748; line-height: 1.7; white-space: pre-wrap;">{rationale_text}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+                # 5) RL 보상 기여도 귀인 차트 + 근거 규정 (RL 전용 — greedy 는 보상 개념 없음)
+                if is_rl and rl_dec.get("top_contributions"):
+                    st.markdown("#### 📈 의사결정 보상 기여도 귀인 (Reward Decomposition)")
+                    try:
+                        import altair as alt
+                        from snct.data.sources.rl_results import REWARD_LABELS
+                        contrib = [
+                            {"요인": REWARD_LABELS.get(t, t), "기여도": v,
+                             "영향": "긍정 (품질 향상)" if v >= 0 else "부정 (감점 요인)"}
+                            for t, v in rl_dec["top_contributions"]
+                        ]
+                        chart = alt.Chart(pd.DataFrame(contrib)).mark_bar().encode(
+                            y=alt.Y("요인:N", sort="-x", title=None),
+                            x=alt.X("기여도:Q", title="보상 기여도 값"),
+                            color=alt.Color("영향:N", scale=alt.Scale(
+                                domain=["긍정 (품질 향상)", "부정 (감점 요인)"],
+                                range=["#38a169", "#e53e3e"]), title="기여 영향"),
+                        ).properties(height=300)
+                        st.altair_chart(chart, use_container_width=True)
+                    except Exception as _ex:
+                        st.caption(f"보상 차트 렌더 오류: {_ex}")
+                    if rl_dec.get("doc_refs"):
+                        st.markdown("**📚 근거 규정:** " + "  ".join(f"`{d}`" for d in rl_dec["doc_refs"]))
+                elif not is_rl:
+                    st.info("ℹ️ Greedy는 휴리스틱 기준선 엔진으로, 학습 보상 기여도(Reward) 분해가 없습니다. RL 엔진(rl_bl/sf/ef) 선택 시 보상 귀인 분석이 표시됩니다.")
                 
                 col_plan, col_viol = st.columns(2)
                 with col_plan:
@@ -790,150 +854,6 @@ elif page == "적재 계획 (Planning)":
                     st.pyplot(fig)
             else:
                 st.error("API 호출 실패. 백엔드 서버 상태를 확인하세요.")
-
-elif page == "RL 적재 설명 (xAI)":
-    st.subheader("RL 적재 의사결정 설명 (xAI-RL)")
-    st.caption("강화학습이 왜 그렇게 적재했는지 — reward 귀인·운영지표·규정·위반 컨테이너를 사실 근거로 설명합니다.")
-    avail = _available_decisions()
-    policies, rounds = avail[0], avail[1]
-    if not policies:
-        st.error(f"RL 결과 자료를 찾을 수 없습니다. ({avail[2] if len(avail) > 2 else 'data/강화학습 결과 자료'})")
-    else:
-        c1, c2, c3 = st.columns([1, 1, 2])
-        policy = c1.selectbox("정책", policies)
-        round_id = c2.selectbox("라운드", rounds)
-        with_lpg = c3.checkbox("LPG 위반 컨테이너 상세 포함", value=True)
-        
-        if "explanation_result" not in st.session_state:
-            st.session_state.explanation_result = None
-
-        if st.button("설명 생성", type="primary"):
-            with st.spinner("RL 의사결정 설명 및 시각화 자료 로드 중..."):
-                from snct.agents.graph import run_explanation
-                rec = run_explanation(policy=policy, round_id=int(round_id), with_lpg=with_lpg)
-                st.session_state.explanation_result = {
-                    "policy": policy,
-                    "round_id": round_id,
-                    "rationale": rec.rationale,
-                    "checks": rec.checks,
-                }
-
-        if st.session_state.explanation_result:
-            result = st.session_state.explanation_result
-            faith = next((c.split("=")[1] for c in result["checks"] if c.startswith("faithfulness=")), None)
-            if faith is not None:
-                faith_pct = int(float(faith) * 100)
-                status_text = f"🛡️ **설명 신뢰성 검증 완료** (근거 충실도: **{faith_pct}%**)  |  **정책**: {result['policy']}  |  **라운드**: {result['round_id']}"
-                if float(faith) >= 1.0:
-                    st.success(status_text)
-                else:
-                    st.warning(status_text + " (⚠️ 일부 설명에 수치 불일치 가능성이 감지되었습니다.)")
-            # xAI 신뢰 지수 계기판 시각화
-            faith = next((c.split("=")[1] for c in result["checks"] if c.startswith("faithfulness=")), None)
-            if faith is not None:
-                faith_pct = int(float(faith) * 100)
-                score_color = "#38a169" if float(faith) >= 0.9 else "#dd6b20" if float(faith) >= 0.8 else "#e53e3e"
-                badge_text = "🟢 우수" if float(faith) >= 0.9 else "🟡 양호" if float(faith) >= 0.8 else "🔴 주의"
-                
-                col_score_x, col_chk_x = st.columns([1, 2])
-                with col_score_x:
-                    st.markdown(f"""
-                    <div class="card" style="border-top: 5px solid {score_color}; text-align: center; padding: 20px; margin-bottom: 15px;">
-                        <h5 style="margin: 0; color: #1F3864 !important;">설명 신뢰 점수</h5>
-                        <div style="font-size: 38px; font-weight: 800; color: {score_color}; margin: 10px 0;">{faith_pct}%</div>
-                        <span class="badge" style="background-color: {score_color};">{badge_text}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col_chk_x:
-                    st.markdown(f"""
-                    <div class="card" style="border-top: 5px solid #1F3864; padding: 15px; margin-bottom: 15px;">
-                        <h5 style="margin: 0 0 8px 0;">의사결정 팩트 일치 검증</h5>
-                        <table style="width:100%; font-size:12px; border-collapse:collapse;">
-                            <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding:4px 0; color:#38a169;">✓</td><td style="color:#2d3748;">KPI 매칭률</td><td style="text-align:right; color:#38a169; font-weight:600;">100% Pass</td></tr>
-                            <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding:4px 0; color:#38a169;">✓</td><td style="color:#2d3748;">Attribution 수치 정밀도</td><td style="text-align:right; color:#38a169; font-weight:600;">100% Pass</td></tr>
-                            <tr><td style="padding:4px 0; color:#38a169;">✓</td><td style="color:#2d3748;">Neo4j 관계 일치 여부</td><td style="text-align:right; color:#38a169; font-weight:600;">100% Pass</td></tr>
-                        </table>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            st.markdown(f"""
-            <div class="card" style="border-left: 5px solid #1F3864; padding: 20px; margin-bottom: 20px;">
-                <h4 style="margin: 0 0 12px 0; color: #1F3864 !important;">💡 RL 의사결정 Rationale (자연어 설명서)</h4>
-                <div style="font-size: 14.2px; color: #2d3748; line-height: 1.65; white-space: pre-wrap;">{result["rationale"]}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # 3. 보상 분해(Attribution) 가중치 기여도 막대그래프 시각화 (Altair)
-            try:
-                from snct.data.sources.rl_results import RLResultStore
-                store = RLResultStore()
-                decision = store.get_decision(result["policy"], int(result["round_id"]))
-                
-                contrib_data = []
-                from snct.data.sources.rl_results import REWARD_LABELS
-                for term, val in decision.top_contributions:
-                    label = REWARD_LABELS.get(term, term)
-                    contrib_data.append({
-                        "Attribution Factor": label,
-                        "Attribution Value": val,
-                        "Impact": "Positive (계획품질향상)" if val >= 0 else "Negative (감점요인)"
-                    })
-                
-                if contrib_data:
-                    st.markdown("### 📈 의사결정 보상 기여도 귀인 분석 (Reward Decomposition Attribution)")
-                    df_contrib = pd.DataFrame(contrib_data)
-                    import altair as alt
-                    chart = alt.Chart(df_contrib).mark_bar().encode(
-                        y=alt.Y("Attribution Factor:N", sort="-x", title=None),
-                        x=alt.X("Attribution Value:Q", title="보상 기여도 값 (Reward Value)"),
-                        color=alt.Color("Impact:N", scale=alt.Scale(
-                            domain=["Positive (계획품질향상)", "Negative (감점요인)"],
-                            range=["#38a169", "#e53e3e"]
-                        ), title="기여 요인 영향")
-                    ).properties(height=280)
-                    st.altair_chart(chart, use_container_width=True)
-            except Exception as ex_chart:
-                print(f"[Chart Error] {ex_chart}")
-
-            # 훈련 결과 차트 이미지 렌더링 (NFC/NFD 호환)
-            curr_policy = result["policy"]
-            from snct.data.sources.rl_results import default_results_dir
-            try:
-                base_dir = default_results_dir()
-                v13_dir = base_dir / "v13_3way_BL_SF_EF (1)"
-                policy_dir = v13_dir / curr_policy
-                
-                img_files = [
-                    f"fig5_bay_plan_PPO_{curr_policy}.png"
-                ]
-                
-                existing_imgs = []
-                for img_name in img_files:
-                    img_path = policy_dir / img_name
-                    if img_path.exists():
-                        existing_imgs.append((img_path, img_name))
-                
-                if existing_imgs:
-                    st.write("---")
-                    st.markdown("### 📊 최적 적재 배치도 (Optimal Stowage Plan)")
-                    cols = st.columns(2)
-                    for idx, (path, name) in enumerate(existing_imgs):
-                        name_clean = name.replace(".png", "")
-                        if "PPO" in name_clean:
-                            policy_suffix = name_clean.split("PPO_")[-1]
-                            caption_name = f"📊 PPO 최적 적재계획도 (Policy: {policy_suffix.upper()})"
-                        else:
-                            caption_name = f"📊 {name_clean.replace('_', ' ').title()}"
-                            
-                        with cols[idx % 2]:
-                            st.markdown(f"""
-                            <div class="card" style="padding: 10px; margin-bottom: 10px; text-align: center;">
-                                <p style="font-weight: bold; margin-bottom: 0px; color: #1F3864 !important; font-size: 14px;">{caption_name}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.image(str(path), use_container_width=True)
-            except Exception as e:
-                st.warning(f"시각화 이미지를 불러오는 중 오류가 발생했습니다: {e}")
 
 elif page == "컨테이너 위치 조회":
     st.subheader("컨테이너 위치 조회")
