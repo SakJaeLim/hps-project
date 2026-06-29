@@ -719,12 +719,17 @@ elif page == "적재 계획 (Planning)":
         
     plan_query = st.text_area("작업 지시 입력", "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.")
 
-    explore_mode = st.checkbox(
-        "🎲 탐색 모드 (매 실행 다른 대안 생성)",
-        value=False,
-        help="끄면(기본) RL 정책의 최적행동(argmax)을 고정 → 같은 입력엔 항상 같은 최적 계획(재현성). "
-             "켜면 정책 분포에서 표집 → 실행할 때마다 다른 대안 계획이 나옴(최적은 아닐 수 있음). greedy에는 영향 없음.",
+    plan_mode = st.radio(
+        "계획 생성 기준",
+        ["♻️ 재현성 (최적 계획 고정)", "🎲 재생성 (매번 다른 대안)"],
+        horizontal=True,
+        help="재현성: RL 정책의 최적행동(argmax)을 고정 → 같은 입력엔 항상 같은 최적 계획. "
+             "재생성: 정책 분포에서 표집 → 실행할 때마다 다른 대안 계획(최적은 아닐 수 있음). "
+             "greedy 엔진은 휴리스틱이라 두 기준 모두 동일 결과.",
     )
+    explore_mode = plan_mode.startswith("🎲")
+    if explore_mode and engine_choice == "greedy":
+        st.caption("ℹ️ greedy는 결정론적 휴리스틱이라 '재생성'을 켜도 결과가 동일합니다. RL 엔진(rl_bl/sf/ef)에서 효과가 있습니다.")
 
     if st.button("계획 수립 (Pipeline Run)"):
         with st.spinner("에이전트 파이프라인 실행 중 (Recognize → Plan → Validate → Explain)..."):
