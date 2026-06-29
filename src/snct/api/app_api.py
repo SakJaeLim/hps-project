@@ -52,6 +52,7 @@ class PlanRequest(BaseModel):
     question: str
     engine: str = "greedy"  # greedy | rl
     vessel_id: str = "VESSEL-001"
+    explore: bool = False   # True → RL 표집(매 실행 다른 대안), False → argmax(최적·재현성)
 
 class ExplainRequest(BaseModel):
     """RL 의사결정 설명 요청. question으로 자연어 또는 policy+round_id 직접 지정."""
@@ -74,15 +75,39 @@ _local_model_cache: dict = {}
 
 
 def _find_local_model_path(hf_model_id: str) -> str | None:
-    """Find the local HuggingFace cache snapshot directory for a model ID."""
-    # Normalize model ID to cache folder name: org/model → models--org--model
+    """Find the local HuggingFace cache snapshot directory for a model ID.
+
+    refs/main(현재 HEAD 커밋)을 우선 사용한다. 과거에는 sorted()[-1] 로 골라
+    '알파벳순 마지막' 스냅샷을 집었는데, 재학습으로 새 스냅샷(예: 3d19...)을 받아도
+    옛 스냅샷(예: 9a4e...)이 캐시에 남아있으면 9 > 3 이라 옛(깨진) 모델을 로드하는
+    버그가 있었다. refs/main → 최신 mtime 순으로 선택해 항상 최신 모델을 쓴다."""
     safe_name = "models--" + hf_model_id.replace("/", "--")
     cache_base = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
-    model_cache_dir = os.path.join(cache_base, safe_name, "snapshots")
-    if not os.path.isdir(model_cache_dir):
+    model_root = os.path.join(cache_base, safe_name)
+    snap_dir = os.path.join(model_root, "snapshots")
+    if not os.path.isdir(snap_dir):
         return None
-    snapshots = sorted(os.listdir(model_cache_dir))
-    return os.path.join(model_cache_dir, snapshots[-1]) if snapshots else None
+    snapshots = [d for d in os.listdir(snap_dir) if os.path.isdir(os.path.join(snap_dir, d))]
+    if not snapshots:
+        return None
+
+    # 1) refs/main 의 커밋 해시 = 현재 HEAD 스냅샷 (권위 있는 선택)
+    ref_main = os.path.join(model_root, "refs", "main")
+    if os.path.isfile(ref_main):
+        try:
+            with open(ref_main, "r", encoding="utf-8") as f:
+                head = f.read().strip()
+            head_path = os.path.join(snap_dir, head)
+            if head in snapshots and os.path.isdir(head_path):
+                print(f"[local inference] snapshot via refs/main: {head}")
+                return head_path
+        except Exception as e:
+            print(f"[local inference] refs/main read failed: {e}")
+
+    # 2) 폴백: 가장 최근에 받은(mtime 최신) 스냅샷 — 알파벳 정렬의 오선택 방지
+    snapshots.sort(key=lambda d: os.path.getmtime(os.path.join(snap_dir, d)))
+    print(f"[local inference] snapshot via newest mtime: {snapshots[-1]}")
+    return os.path.join(snap_dir, snapshots[-1])
 
 
 def run_local_inference(prompt: str, model_name: str = "portslm", max_new_tokens: int = 512) -> str | None:
@@ -361,6 +386,7 @@ def plan_endpoint(req: PlanRequest):
             question=req.question,
             vessel_id=req.vessel_id,
             engine=req.engine,
+            deterministic=not req.explore,
         )
 
         latency = int((time.time() - start_time) * 1000)

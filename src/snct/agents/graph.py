@@ -20,6 +20,7 @@ class PipelineState:
     evidence: list[dict] = field(default_factory=list)
     rationale: str = ""
     engine_name: str = "greedy"
+    deterministic: bool = True   # RL 추론: True=argmax(최적), False=표집(매 실행 다른 대안)
     retry_count: int = 0
     max_retries: int = 2
 
@@ -45,7 +46,7 @@ def plan_step(state: PipelineState) -> PipelineState:
     if state.yard_state is None:
         return state
 
-    strategy = get_strategy(state.engine_name)
+    strategy = get_strategy(state.engine_name, deterministic=state.deterministic)
     state.plan = strategy.plan(state.yard_state)
     return state
 
@@ -74,15 +75,18 @@ def run_pipeline(
     question: str,
     vessel_id: str = "VESSEL-001",
     engine: str = "greedy",
+    deterministic: bool = True,
 ) -> Recommendation:
     """Execute the full 4-node pipeline with retry on constraint violations.
 
     Flow: Recognize → Plan → Validate → (if errors → retry Plan) → Explain
+    deterministic: RL 추론 방식 (True=argmax 최적/재현성, False=표집/매 실행 다른 대안).
     """
     state = PipelineState(
         question=question,
         vessel_id=vessel_id,
         engine_name=engine,
+        deterministic=deterministic,
     )
 
     # Node 1: Recognize

@@ -718,10 +718,18 @@ elif page == "적재 계획 (Planning)":
         vessel_id = st.text_input("Vessel ID", level_to_vessel[level_choice])
         
     plan_query = st.text_area("작업 지시 입력", "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.")
-    
+
+    explore_mode = st.checkbox(
+        "🎲 탐색 모드 (매 실행 다른 대안 생성)",
+        value=False,
+        help="끄면(기본) RL 정책의 최적행동(argmax)을 고정 → 같은 입력엔 항상 같은 최적 계획(재현성). "
+             "켜면 정책 분포에서 표집 → 실행할 때마다 다른 대안 계획이 나옴(최적은 아닐 수 있음). greedy에는 영향 없음.",
+    )
+
     if st.button("계획 수립 (Pipeline Run)"):
         with st.spinner("에이전트 파이프라인 실행 중 (Recognize → Plan → Validate → Explain)..."):
-            res = call_api("/plan", {"question": plan_query, "engine": engine_choice, "vessel_id": vessel_id})
+            res = call_api("/plan", {"question": plan_query, "engine": engine_choice,
+                                     "vessel_id": vessel_id, "explore": explore_mode})
             if res:
                 st.success(f"파이프라인 실행 완료 (소요시간: {res.get('latency_ms', 0)}ms)")
                 

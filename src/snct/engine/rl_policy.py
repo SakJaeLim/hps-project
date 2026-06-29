@@ -90,8 +90,11 @@ class RLStrategy(StowageStrategy):
         model_type: str = "BL",
         checkpoint_dir: str | None = None,
         checkpoint: str | None = None,
+        deterministic: bool = True,
     ):
         self.model_type = (model_type or "BL").upper()
+        # deterministic=True → 정책 분포의 argmax(최적·재현성). False → 표집(매 실행 다른 대안).
+        self.deterministic = deterministic
         self.checkpoint = self._resolve_checkpoint(checkpoint_dir, checkpoint)
         self.model = None
 
@@ -271,7 +274,7 @@ class RLStrategy(StowageStrategy):
             ppo_action = -1
             if self.model is not None:
                 obs = self._to_obs(wt_grid, pod_grid, stack_h, ctns_wt, ctns_pod, step_idx, n_containers, n_valid)
-                action, _ = self.model.predict(obs, deterministic=True)
+                action, _ = self.model.predict(obs, deterministic=self.deterministic)
                 ppo_action = int(np.asarray(action).item())
                 
             # 2. Try the predicted action first
