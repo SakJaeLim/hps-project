@@ -1,20 +1,19 @@
 import os
 import sys
 import json
-from pathlib import Path
+import pytest
 
 # Ensure src is in sys.path
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT / "src"))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-BASE_DIR = Path(os.environ.get("HPS_BASE_DIR", PROJECT_ROOT))
+BASE_DIR = r"i:\내 드라이브\01. AI 프로젝트(석제)\[aSSIST] AI project\01. HPS 프로젝트\임석제\snct-decision-platform"
 
 def test_gen_sft_output_exists():
     # Verify that Phase 2 data files exist and have correct formats
-    data_dir = BASE_DIR / "data" / "simulated"
-    train_file = data_dir / "train.jsonl"
-    val_file = data_dir / "val.jsonl"
-    golden_file = data_dir / "eval_golden.jsonl"
+    data_dir = os.path.join(BASE_DIR, "data", "simulated")
+    train_file = os.path.join(data_dir, "train.jsonl")
+    val_file = os.path.join(data_dir, "val.jsonl")
+    golden_file = os.path.join(data_dir, "eval_golden.jsonl")
     
     assert os.path.exists(train_file)
     assert os.path.exists(val_file)
@@ -33,15 +32,18 @@ def test_eval_metrics_run():
     # Import eval metrics
     from snct.eval.eval_metrics import run_evaluation
     
-    golden_file = BASE_DIR / "data" / "simulated" / "eval_golden.jsonl"
-    report_csv = BASE_DIR / "data" / "simulated" / "test_eval_report.csv"
+    golden_file = os.path.join(BASE_DIR, "data", "simulated", "eval_golden.jsonl")
+    report_csv = os.path.join(BASE_DIR, "data", "simulated", "test_eval_report.csv")
     
-    # Run offline evaluation with mock (by passing empty/none model path)
+    # Run offline evaluation with mock (None paths → mock fallback), 3-way signature
     run_evaluation(
-        golden_path=str(golden_file),
-        base_model_path=None,
-        ft_model_path=None,
-        output_csv=str(report_csv)
+        golden_path=golden_file,
+        model_specs=[
+            {"key": "base", "label": "Base", "path": None},
+            {"key": "v1", "label": "v1", "path": None},
+            {"key": "v2", "label": "v2", "path": None},
+        ],
+        output_csv=report_csv,
     )
     
     assert os.path.exists(report_csv)

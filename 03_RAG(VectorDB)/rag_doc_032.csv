@@ -1,0 +1,7 @@
+constraint_id:ID(Con),type,rule_text,source_segment,severity,:LABEL
+C-DG,DG_segregation,위험물 격리 — DGS IMDG class 기반 상호반응 등급 격리,DGS,high,Constraint
+C-REEFER,reefer_temperature,"Reefer 온도 — TMP/RNG 설정온도·범위 준수, 전원 연결 슬롯",TMP,high,Constraint
+C-OOG,oog_dimension,OOG 치수 — DIM off-standard 전/후/좌/우/높이 초과 슬롯 확보,DIM,medium,Constraint
+C-WEIGHT,weight_distribution,"중량 분포 — MEA Gross/VGM, heavy-down/light-up, 열중량 한계",MEA,high,Constraint
+C-ORDER,discharge_order,"양하 순서 — LOC POD 순서, 오버스토우 방지(STACKED_ON)",LOC,high,Constraint
+C-VGM,vgm_verification,"VGM 검증 — SOLAS 검증총중량, 적재목록 한정 유효",MEA,medium,Constraint

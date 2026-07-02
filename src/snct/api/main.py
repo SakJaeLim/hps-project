@@ -1,6 +1,6 @@
 """L6 FastAPI — 에이전트 그래프 호출 엔드포인트. specs/00 · 계약 Recommendation."""
 from fastapi import FastAPI
-app = FastAPI(title="Decision Support")
+app = FastAPI(title="SNCT Decision Support")
 
 @app.get("/health")
 def health(): return {"ok": True}

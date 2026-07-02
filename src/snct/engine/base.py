@@ -8,14 +8,21 @@ class StowageStrategy(ABC):
     @abstractmethod
     def plan(self, yard: YardState) -> CandidatePlan: ...
 
-def get_strategy(name: str = "rl") -> "StowageStrategy":
-    """기본 엔진 = rl (ADR-0001). cp는 벤치마크 통과 시에만 기본으로 승격."""
+def get_strategy(name: str = "rl", deterministic: bool = True) -> "StowageStrategy":
+    """기본 엔진 = rl (ADR-0001). cp는 벤치마크 통과 시에만 기본으로 승격.
+    deterministic: RL 정책 추론 방식. True=argmax(최적·재현성), False=표집(매 실행 다른 대안)."""
     if name == "greedy":
         from snct.engine.greedy import GreedyStrategy
         return GreedyStrategy()
     elif name == "cp":
         from snct.engine.cp_sat import CPStrategy
         return CPStrategy()
-    else:
+    elif name == "rl_sf":
         from snct.engine.rl_policy import RLStrategy
-        return RLStrategy()
+        return RLStrategy(model_type="SF", deterministic=deterministic)
+    elif name == "rl_ef":
+        from snct.engine.rl_policy import RLStrategy
+        return RLStrategy(model_type="EF", deterministic=deterministic)
+    else: # "rl" or "rl_bl"
+        from snct.engine.rl_policy import RLStrategy
+        return RLStrategy(model_type="BL", deterministic=deterministic)

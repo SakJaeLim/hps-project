@@ -1,14 +1,14 @@
-# 의사결정 지원 플랫폼 (decision-platform)
+# SNCT 의사결정 지원 플랫폼 (snct-decision-platform)
 
 온톨로지 기반 컨테이너 터미널 운영 의사결정 지원 플랫폼 — **1개월 MVP**.
 멀티에이전트(LangGraph) · 적재 최적화(Greedy→RL) · 도메인 SLM(LoRA)+RAG · Neo4j 온톨로지 · Streamlit 대시보드.
 
-> 상세 계획은 `../../00_프로젝트_관리/실행계획서_의사결정지원플랫폼.docx` 참조.
+> 상세 계획은 `../../00_프로젝트_관리/실행계획서_SNCT_의사결정지원플랫폼.docx` 참조.
 
 ## 아키텍처 (레이어)
 | 레이어 | 내용 | 위치 |
 |---|---|---|
-| L1 데이터 | 어댑터(Simulated/Live), 캐노니컬 스키마 | `src/snct/data` |
+| L1 데이터 | 어댑터(Simulated/SNCT-Live), 캐노니컬 스키마 | `src/snct/data` |
 | L2 온톨로지 | Neo4j 그래프 + Cypher 제약 | `src/snct/ontology` |
 | L3 최적화 | Greedy 플래너 + Gym Env(+RL) | `src/snct/engine` |
 | L4 에이전트 | LangGraph 인식·계획·검증·설명 | `src/snct/agents` |
@@ -16,7 +16,7 @@
 | L6 앱 | FastAPI + Streamlit | `src/snct/api`, `dashboard` |
 
 ## 데이터 전략
-`DataProvider` 추상 인터페이스 → `SimulatedProvider`(기본) / `LiveProvider`(실데이터).
+`DataProvider` 추상 인터페이스 → `SimulatedProvider`(기본) / `SNCTLiveProvider`(실데이터).
 **시뮬레이션 우선**, 실데이터 도착 시 정제 스크립트만 추가해 어댑터 교체. `data/real/`는 git 추적 제외.
 
 ## 시작하기

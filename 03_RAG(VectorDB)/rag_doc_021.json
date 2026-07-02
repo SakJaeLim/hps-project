@@ -1,0 +1,251 @@
+{
+  "schema_name": "PortAgent_BAPLIE_KG",
+  "description": "SMDG BAPLIE 3.1.1 메시지 명세(온톨로지) + 인스턴스 운영 그래프 통합 LPG 스키마",
+  "node_labels": [
+    {
+      "label": "Segment",
+      "props": [
+        "code",
+        "name",
+        "position",
+        "usage",
+        "max_use",
+        "purpose"
+      ],
+      "example": {
+        "code": "LOC",
+        "name": "Place/Location Identification",
+        "position": "00210",
+        "usage": "Mandatory"
+      }
+    },
+    {
+      "label": "SegmentGroup",
+      "props": [
+        "number",
+        "trigger",
+        "level",
+        "usage",
+        "members"
+      ],
+      "example": {
+        "number": 7,
+        "trigger": "EQD",
+        "members": [
+          "EQD",
+          "NAD",
+          "MEA",
+          "HAN",
+          "DIM",
+          "RFF",
+          "GDS",
+          "FTX"
+        ]
+      }
+    },
+    {
+      "label": "DataElement",
+      "props": [
+        "tag",
+        "name",
+        "attributes",
+        "mandatory"
+      ],
+      "example": {
+        "tag": "3227",
+        "name": "LOCATION FUNCTION CODE QUALIFIER",
+        "attributes": "an..3"
+      }
+    },
+    {
+      "label": "CodeValue",
+      "props": [
+        "element_tag",
+        "code",
+        "meaning"
+      ],
+      "example": {
+        "element_tag": "3227",
+        "code": "147",
+        "meaning": "Transport means stowage location"
+      }
+    },
+    {
+      "label": "Vessel",
+      "props": [
+        "imo",
+        "name",
+        "voyage"
+      ]
+    },
+    {
+      "label": "Container",
+      "props": [
+        "equipment_id",
+        "iso_size_type",
+        "status",
+        "gross_weight_kg",
+        "max_stack_weight_t"
+      ]
+    },
+    {
+      "label": "Slot",
+      "props": [
+        "bbrrtt",
+        "bay",
+        "row",
+        "tier",
+        "deck_hold"
+      ]
+    },
+    {
+      "label": "POD",
+      "props": [
+        "unlocode",
+        "name"
+      ]
+    },
+    {
+      "label": "DangerousGoods",
+      "props": [
+        "imdg_class",
+        "un_number",
+        "flashpoint_cel",
+        "ems"
+      ]
+    },
+    {
+      "label": "Reefer",
+      "props": [
+        "temp_setpoint_cel",
+        "temp_min",
+        "temp_max"
+      ]
+    },
+    {
+      "label": "Constraint",
+      "props": [
+        "rule_id",
+        "source",
+        "description"
+      ]
+    }
+  ],
+  "relationship_types": [
+    {
+      "type": "CONTAINS_SEGMENT",
+      "from": "SegmentGroup",
+      "to": "Segment"
+    },
+    {
+      "type": "HAS_ELEMENT",
+      "from": "Segment",
+      "to": "DataElement"
+    },
+    {
+      "type": "HAS_CODE",
+      "from": "DataElement",
+      "to": "CodeValue"
+    },
+    {
+      "type": "NESTED_IN",
+      "from": "SegmentGroup",
+      "to": "SegmentGroup",
+      "note": "SG8-11 nested under SG7"
+    },
+    {
+      "type": "ASSIGNED_TO",
+      "from": "Container",
+      "to": "Slot",
+      "note": "BAPLIE EQD↔LOC+147 매핑"
+    },
+    {
+      "type": "STACKED_ON",
+      "from": "Container",
+      "to": "Container",
+      "note": "동일 bay/row 내 tier 인접 → 적재 검증"
+    },
+    {
+      "type": "DISCHARGED_AT",
+      "from": "Container",
+      "to": "POD",
+      "note": "LOC+11 (port of discharge)"
+    },
+    {
+      "type": "LOADED_ON",
+      "from": "Container",
+      "to": "Vessel"
+    },
+    {
+      "type": "CARRIES_DG",
+      "from": "Container",
+      "to": "DangerousGoods",
+      "note": "DGS/SG11"
+    },
+    {
+      "type": "HAS_REEFER",
+      "from": "Container",
+      "to": "Reefer",
+      "note": "TMP/SG9"
+    },
+    {
+      "type": "VIOLATES",
+      "from": "Slot",
+      "to": "Constraint",
+      "note": "text2Cypher 제약 검증 결과"
+    }
+  ],
+  "segment_to_instance_mapping": [
+    {
+      "segment": "EQD",
+      "creates": "Container",
+      "key_fields": {
+        "equipment_id": "C237.8260",
+        "iso_size_type": "C224.8155"
+      }
+    },
+    {
+      "segment": "LOC+147",
+      "creates": "Slot",
+      "key_fields": {
+        "bbrrtt": "C517.3225 (BBBRRTT 7-digit)"
+      }
+    },
+    {
+      "segment": "MEA+AAE/VGM",
+      "sets": "Container.gross_weight_kg",
+      "unit": "KGM"
+    },
+    {
+      "segment": "MEA(stack)",
+      "sets": "Container.max_stack_weight_t",
+      "when": "< 192t"
+    },
+    {
+      "segment": "LOC+11",
+      "creates": "POD + DISCHARGED_AT edge"
+    },
+    {
+      "segment": "DGS",
+      "creates": "DangerousGoods + CARRIES_DG edge"
+    },
+    {
+      "segment": "TMP/RNG",
+      "creates": "Reefer + HAS_REEFER edge"
+    }
+  ],
+  "validation_cypher_examples": [
+    {
+      "intent": "중량 초과 적재 검증 (Heavy-on-Light)",
+      "cypher": "MATCH (a:Container)-[:STACKED_ON]->(b:Container) WHERE a.gross_weight_kg/1000.0 > b.max_stack_weight_t RETURN a.equipment_id AS upper, b.equipment_id AS lower, b.max_stack_weight_t"
+    },
+    {
+      "intent": "DG 인접 격리 위반 검증",
+      "cypher": "MATCH (c1:Container)-[:CARRIES_DG]->(d1:DangerousGoods),(c2:Container)-[:CARRIES_DG]->(d2:DangerousGoods),(c1)-[:STACKED_ON]->(c2) WHERE d1.imdg_class<>d2.imdg_class RETURN c1.equipment_id,d1.imdg_class,c2.equipment_id,d2.imdg_class"
+    },
+    {
+      "intent": "POD 역순 적재 검증 (나중 양하항이 아래)",
+      "cypher": "MATCH (a:Container)-[:STACKED_ON]->(b:Container),(a)-[:DISCHARGED_AT]->(pa:POD),(b)-[:DISCHARGED_AT]->(pb:POD) WHERE pa.seq > pb.seq RETURN a.equipment_id,pa.name,b.equipment_id,pb.name"
+    }
+  ]
+}

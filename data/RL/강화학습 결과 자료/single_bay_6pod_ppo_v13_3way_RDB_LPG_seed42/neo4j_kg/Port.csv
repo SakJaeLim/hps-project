@@ -1,0 +1,7 @@
+﻿pod_id:ID(Port),pod_name,distance_rank:int,:LABEL
+1,Busan,1,Port
+2,Shanghai,2,Port
+3,Ningbo,3,Port
+4,Singapore,4,Port
+5,Colombo,5,Port
+6,Rotterdam,6,Port

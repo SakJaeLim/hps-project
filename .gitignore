@@ -22,5 +22,21 @@ outputs/
 data/real/*
 !data/real/README.txt
 
+# Data: 대용량 RL 결과 자료 · 원천 요청자료 (git 미추적, 로컬에서만 사용)
+data/강화학습 결과 자료/
+data/강화학습 결과 자료.zip
+data/data_rdb_lpg_sft/
+
+# 참조용 외부 코드(민감 문서·API 키 포함) — 커밋 금지
+container terminal sqi agent/
+container terminal sql agent/
+
 # OS
 .DS_Store
+
+# 평가 산출물(런타임 생성·덮어쓰기 → git 미추적; 대시보드는 있으면 읽고 없으면 데모 폴백)
+data/simulated/engine_eval*.json
+data/simulated/eval_summary.json
+data/simulated/eval_report.csv
+data/regen/
+data/aug/

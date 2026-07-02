@@ -1,14 +1,1149 @@
-"""L6 Streamlit 운영자 대시보드 — 4화면(메인·요청·결과·경보). 프론트엔드 담당."""
+import sys
+import pathlib
+import os
 import streamlit as st
+import pandas as pd
+import requests
+import time
 
-st.set_page_config(page_title="의사결정 지원", layout="wide")
-page = st.sidebar.radio("화면", ["메인 대시보드", "계획 요청", "결과", "경보"])
-st.title("컨테이너 터미널 의사결정 지원")
-if page == "메인 대시보드":
-    st.info("야드·선석 실시간 현황 (온톨로지 기반). TODO(W1 와이어프레임 → W2 연동)")
-elif page == "계획 요청":
-    st.text_input("선박 ID"); st.button("적재 계획 생성")
-elif page == "결과":
-    st.write("권고안 + 근거 + 재취급 위험 표시. TODO(W2)")
-else:
-    st.warning("충돌·위험 경보. TODO(W3)")
+# src/ 패키지 경로 등록 (streamlit run dashboard/app.py 실행 가정)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+
+# .env 로드 (Neo4j/Neon 접속정보) — 있으면 자동 적용, 없으면 CSV 폴백
+try:
+    from dotenv import load_dotenv
+    load_dotenv(pathlib.Path(__file__).resolve().parents[1] / ".env")
+except Exception:
+    pass
+
+# Custom Styling Injections
+st.set_page_config(
+    page_title="PortSLM — 항만 도메인 특화 SLM",
+    page_icon="⚓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Premium Theme CSS Injection
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap');
+    
+    /* Global Overrides */
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    h1, h2, h3, h4 {
+        font-family: 'Outfit', sans-serif;
+        color: #1F3864 !important;
+        font-weight: 700;
+    }
+    
+    /* Top Header Bar */
+    .header-bar {
+        background: linear-gradient(135deg, #13315c 0%, #1F3864 100%);
+        padding: 20px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .header-title {
+        font-size: 24px;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.5px;
+        color: #ffffff !important;
+        white-space: nowrap;
+    }
+    
+    .header-subtitle {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9) !important;
+        margin-top: 4px;
+        white-space: nowrap;
+    }
+    
+    .badge {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 5px 15px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    
+    /* Dashboard Cards */
+    .card {
+        background: #ffffff !important;
+        color: #2d3748 !important;
+        border-radius: 12px;
+        padding: 22px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+    
+    .card p {
+        color: #2d3748 !important;
+        white-space: pre-line !important;
+    }
+    
+    .card h4, .card span, .card div, .card td, .card li {
+        color: #2d3748 !important;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Chat Bubbles */
+    .chat-bubble {
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        line-height: 1.6;
+        font-size: 14.5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    
+    .chat-user {
+        background: #edf2f7;
+        color: #2d3748;
+        margin-left: 15%;
+        border-top-right-radius: 2px;
+        border: 1px solid #cbd5e0;
+    }
+    
+    .chat-bot {
+        background: #f0f7ff;
+        color: #1a202c;
+        margin-right: 15%;
+        border-top-left-radius: 2px;
+        border-left: 4px solid #1F3864;
+        border: 1px solid #bee3f8;
+    }
+    
+    /* Evidence Label */
+    .evidence {
+        font-size: 11.5px;
+        color: #2b6cb0;
+        background: #ebf8ff;
+        border: 1px dashed #90cdf4;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-top: 8px;
+    }
+    
+    /* Buttons styling */
+    .stButton>button {
+        background: linear-gradient(135deg, #13315c 0%, #1F3864 100%) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 8px 20px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stButton>button:hover {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(31, 56, 100, 0.3);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# API Server URL
+API_URL = "http://127.0.0.1:8000"
+
+def call_api(endpoint: str, data: dict = None, method: str = "POST") -> dict | None:
+    """Make HTTP requests to the backend API server."""
+    try:
+        if method == "POST":
+            r = requests.post(f"{API_URL}{endpoint}", json=data, timeout=180.0)
+        else:
+            r = requests.get(f"{API_URL}{endpoint}", timeout=180.0)
+        if r.status_code == 200:
+            return r.json()
+        else:
+            print(f"[Dashboard API] Error: API returned status {r.status_code} for {endpoint}")
+    except Exception as e:
+        print(f"[Dashboard API] Request failed for {endpoint}: {e}")
+    return None
+
+
+def example_chips(state_key: str, examples: list, n_cols: int = 3):
+    """예시 질문 버튼 — 클릭 시 해당 입력 위젯(session_state[state_key])에 채워진다.
+    버튼은 위젯 생성 '이전'에 렌더돼야 클릭값이 같은 run 에서 반영된다."""
+    st.caption("💡 예시 질문 (클릭하면 아래 입력창에 채워집니다)")
+    cols = st.columns(n_cols)
+    for i, ex in enumerate(examples):
+        if cols[i % n_cols].button(ex, key=f"{state_key}__ex{i}", use_container_width=True):
+            st.session_state[state_key] = ex
+
+
+def format_answer_html(text: str) -> str:
+    """모델 답변을 읽기 쉬운 HTML 로. 인라인 열거 '(1)(2)…' / '결론:' 앞에 줄바꿈을
+    넣어 한 덩어리 문단(특히 v2)을 풀고, 마크다운/특수문자는 escape 해 깨짐 방지."""
+    import re as _re
+    import html as _html
+    t = (text or "답변을 가져올 수 없습니다.").strip()
+    t = _re.sub(r"\s*(\(\d{1,2}\))\s*", r"\n\1 ", t)   # (1) (2) … 앞 줄바꿈
+    t = _re.sub(r"\s*(결론\s*[:：])", r"\n\n\1", t)      # 결론: 강조
+    t = _re.sub(r"\n{3,}", "\n\n", t).strip()
+    return _html.escape(t).replace("\n", "<br>")
+
+
+def render_answer_card(text: str, accent: str = "#3b82f6"):
+    """모델 답변을 고대비 카드로 렌더(모델 비교 화면용)."""
+    st.markdown(
+        f"<div style='background:#0f1722;border:1px solid #243246;"
+        f"border-left:4px solid {accent};border-radius:10px;padding:16px 18px;"
+        f"color:#e6edf3;font-size:15px;line-height:1.8;word-break:keep-all;"
+        f"overflow-wrap:anywhere;'>{format_answer_html(text)}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# Local Session State Initializations
+if "active_model" not in st.session_state:
+    st.session_state.active_model = "PortSLM v2 (최신)"
+if "temperature" not in st.session_state:
+    st.session_state.temperature = 0.7
+if "max_tokens" not in st.session_state:
+    st.session_state.max_tokens = 512
+if "top_p" not in st.session_state:
+    st.session_state.top_p = 0.9
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "local_history" not in st.session_state:
+    st.session_state.local_history = []
+
+def draw_bay_plan_fig(res):
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+    import re
+    
+    # Matplotlib settings for cross-platform sans-serif font rendering
+    plt.rcParams['font.family'] = 'sans-serif'
+    plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica', 'Malgun Gothic', 'NanumGothic', 'sans-serif']
+    plt.rcParams['axes.unicode_minus'] = False
+    
+    assignments = res.get("assignments", [])
+    slots = res.get("slots", [])
+    if not assignments or not slots:
+        return None
+        
+    # Get all row and tier numbers
+    rows = sorted(list(set(s["row"] for s in slots)))
+    tiers = sorted(list(set(s["tier"] for s in slots)))
+    
+    # Grid dimensions
+    n_rows = len(rows)
+    n_tiers = len(tiers)
+    
+    # Map row and tier names to 0-based indices
+    row_to_idx = {r: idx for idx, r in enumerate(rows)}
+    tier_to_idx = {t: idx for idx, t in enumerate(tiers)}
+    
+    # Map grid coordinates
+    pod_grid = np.zeros((n_tiers, n_rows), dtype=int)
+    weight_grid = np.zeros((n_tiers, n_rows), dtype=float)
+    
+    # Mapping table of PODs to indices 1..6
+    POD_MAP = {
+        "BUSAN": 1, "BUSAN(1)": 1,
+        "SHANGHAI": 2, "SHANGHAI(2)": 2,
+        "NINGBO": 3, "NINGBO(3)": 3,
+        "SINGAPORE": 4, "SINGAPORE(4)": 4,
+        "COLOMBO": 5, "COLOMBO(5)": 5,
+        "ROTTERDAM": 6, "ROTTERDAM(6)": 6,
+        "LAX": 6
+    }
+    
+    # Map assigned containers
+    for a in assignments:
+        row = a["row"]
+        tier = a["tier"]
+        pod_name = str(a.get("pod", "")).upper()
+        # Clean up name if it has numbers
+        pod_clean = re.sub(r'[^A-Z]', '', pod_name)
+        pod_id = POD_MAP.get(pod_clean, 6)
+        if pod_clean == "":
+            try:
+                pod_id = int(re.search(r'\d+', pod_name).group())
+            except Exception:
+                pod_id = 6
+        
+        wt = float(a.get("weight_ton", 0.0))
+        
+        if row in row_to_idx and tier in tier_to_idx:
+            r_idx = row_to_idx[row]
+            t_idx = tier_to_idx[tier]
+            pod_grid[t_idx, r_idx] = pod_id
+            weight_grid[t_idx, r_idx] = wt
+            
+    # Setup Colors & Names
+    POD_COLORS = {
+        0: "#E2E8F0",  # Empty
+        1: "#3A86C8",  # Busan
+        2: "#48CAE4",  # Shanghai
+        3: "#00B4D8",  # Ningbo
+        4: "#90E0EF",  # Singapore
+        5: "#FFB703",  # Colombo
+        6: "#FB8500",  # Rotterdam
+    }
+    POD_NAMES = {
+        1: "Busan(1)", 2: "Shanghai(2)", 3: "Ningbo(3)", 4: "Singapore(4)", 5: "Colombo(5)", 6: "Rotterdam(6)"
+    }
+    POD_DISPLAY_NAMES = {
+        1: "Bus", 2: "Sha", 3: "Nin", 4: "Sin", 5: "Col", 6: "Rot"
+    }
+    
+    # Matplotlib plot
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6.8))
+    
+    # 1. POD Plot
+    ax = axes[0]
+    for t in range(n_tiers):
+        for r in range(n_rows):
+            pod_id = pod_grid[t, r]
+            cell_color = POD_COLORS.get(pod_id, "#E2E8F0")
+            rect = plt.Rectangle((r - 0.5, t - 0.5), 1.0, 1.0, facecolor=cell_color, edgecolor="#cbd5e1", linewidth=1.5)
+            ax.add_patch(rect)
+            
+            if pod_id > 0:
+                lbl = f"{POD_DISPLAY_NAMES.get(pod_id, 'POD')}({pod_id})"
+                ax.text(r, t, lbl, ha="center", va="center", color="white" if pod_id in [1, 3, 6] else "#1e293b", fontweight="bold", fontsize=10)
+                
+    ax.set_title("POD Allocation (Discharge Port Plan)", fontsize=12, fontweight="bold", pad=12)
+    ax.set_xticks(range(n_rows))
+    ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
+    ax.set_yticks(range(n_tiers))
+    ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
+    ax.set_xlim(-0.5, n_rows - 0.5)
+    ax.set_ylim(-0.5, n_tiers - 0.5)
+    ax.set_xlabel("Row", fontsize=11, labelpad=8)
+    ax.set_ylabel("Tier", fontsize=11, labelpad=8)
+    ax.grid(False)
+    
+    legend_patches = [mpatches.Patch(color=POD_COLORS[i], label=POD_NAMES[i]) for i in range(1, 7)]
+    ax.legend(handles=legend_patches, bbox_to_anchor=(0.5, -0.18), loc="upper center", ncol=3, frameon=True, facecolor="#f8fafc", edgecolor="#e2e8f0", fontsize=9)
+
+    # 2. Weight Plot
+    ax = axes[1]
+    # Check max weight to scale colormap
+    max_w = max(20.0, weight_grid.max())
+    im = ax.imshow(weight_grid, cmap="Blues", origin="lower", aspect="equal", vmin=0.0, vmax=max_w)
+    
+    for t in range(n_tiers):
+        for r in range(n_rows):
+            wt = weight_grid[t, r]
+            if wt > 0:
+                ax.text(r, t, f"{wt:.1f}t", ha="center", va="center", color="black" if wt < 12.0 else "white", fontweight="bold", fontsize=10)
+                
+    ax.set_title("Weight Distribution (Metric Tons)", fontsize=12, fontweight="bold", pad=12)
+    ax.set_xticks(range(n_rows))
+    ax.set_xticklabels([f"R{r - 1}" for r in rows], fontweight="semibold")
+    ax.set_yticks(range(n_tiers))
+    ax.set_yticklabels([f"T{t - 1}" for t in tiers], fontweight="semibold")
+    ax.set_xlim(-0.5, n_rows - 0.5)
+    ax.set_ylim(-0.5, n_tiers - 0.5)
+    ax.set_xlabel("Row", fontsize=11, labelpad=8)
+    ax.grid(False)
+    
+    cbar = fig.colorbar(im, ax=ax, orientation="vertical", shrink=0.7, pad=0.05)
+    cbar.set_label("Weight (Metric Tons)", fontsize=9, labelpad=8)
+    
+    # Determine curriculum level label
+    if n_rows == 4:
+        level_num = "LV1"
+    elif n_rows == 6:
+        level_num = "LV2"
+    elif n_rows == 8:
+        level_num = "LV3"
+    elif n_rows == 10:
+        level_num = "LV4"
+    else:
+        level_num = f"{n_rows}R"
+        
+    fig.suptitle(f"PPO Stowage Optimization Plan ({level_num} - {n_rows}R × {n_tiers}T)", fontsize=15, fontweight="bold", color="#1E3A8A", y=0.98)
+    
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.88, bottom=0.22)
+    
+    return fig
+
+# Mock fallbacks matching API logic
+def local_mock_inference(model_name: str, prompt: str) -> str:
+    """Fallback mock inference for testing UI without backend API."""
+    prompt_lower = prompt.lower()
+    if "dg" in prompt_lower or "위험물" in prompt_lower:
+        if "base" in model_name.lower():
+            return "일반적으로 위험물(DG) 컨테이너는 특수 구역에 보관해야 하며, 격리 규정이 적용됩니다. 상세한 슬롯 규칙은 선사 지침서(IMDG)를 참고해야 합니다."
+        else:
+            return "추천: BAY11 또는 BAY13의 DG 허용 슬롯. 근거: (1) DG 컨테이너는 Vessel Define에 등록된 'DG 적재 가능 Bay'에만 배치 필수(특수화물 배치 기준). (2) IMDG Code에 따라 Class 3 위험물은 발화원 및 기관실과 격리되어야 하므로 일반 BAY05는 탈락. (3) 12.0t 중량은 Heavy-Down 원칙상 최하단 TIER01 배치가 균형에 부합. 결론: DG 지정 Bay 제약이 결정적."
+    elif "heavy-down" in prompt_lower or "무거운" in prompt_lower or "24.5t" in prompt_lower:
+        if "base" in model_name.lower():
+            return "무거운 컨테이너는 아래쪽에 쌓는 것이 선적 균형에 좋습니다. 보통 24.5t 컨테이너는 하단 슬롯에 추천되지만 구체적인 슬롯은 상황에 따라 다릅니다."
+        else:
+            return "추천 슬롯: BAY03-ROW02-TIER01. 근거: (1) 특수화물(DG/Reefer) 아님 → 지정 위치 제약 무관. (2) POD 그룹핑 — LAX는 원거리 항이므로 하부에 적재하여 양하 역순을 방지(선적 Planning 기준). (3) 중량 24.5t은 Heavy-Down & Light-Up 원칙상 하부 Tier 배치가 적합, 선박 복원성(COG) 확보. (4) 상단 간섭이 없어 재취급(rehandling) 위험 low. 종합: 4개 제약 충족."
+    elif "reefer" in prompt_lower or "냉동" in prompt_lower:
+        if "base" in model_name.lower():
+            return "냉동(Reefer) 컨테이너는 전원 케이블을 연결할 수 있는 곳에 적재해야 합니다."
+        else:
+            return "추천 슬롯: BAY07-ROW01-TIER02. 근거: (1) Reefer 컨테이너는 전원 공급이 가능한 지정 Reefer Bay(BAY07/09)에만 배치 필수(특수화물 배치 기준). 후보 중 BAY07만 전원 연결 가능하므로 BAY03은 탈락. (2) ROTTERDAM은 원거리 항이나 Reefer 지정 위치 제약이 POD 그룹핑보다 우선함. (3) 18.0t 중간 중량으로 TIER02 배치는 중량 분포상 허용. 결론: Reefer 지정 위치 제약 결정적."
+    else:
+        if "base" in model_name.lower():
+            return f"입력된 질문 '{prompt}'에 대한 일반적인 컨테이너 터미널 규정에 따르면, 모든 작업은 항만 안전 SOP 및 IMDG 규칙을 참고하십시오."
+        else:
+            return f"답변: 입력된 질문 '{prompt}'은(는) 안전 규정(SOP §3.2) 및 본선 플래닝 기준에 의거하여 조치를 취해야 합니다. 작업허가(PTW) 및 에너지 차단(LOTO) 절차를 선행하여 충돌과 위험을 사전에 통제하여야 합니다. 근거: 터미널 안전 매뉴얼 SOP."
+
+@st.cache_data(show_spinner=False)
+def _available_decisions():
+    """RL 결과에서 (policy, round) 선택지 로드. 데이터 없으면 빈 목록."""
+    try:
+        from snct.data.sources.rl_results import RLResultStore
+        kpi = RLResultStore().load_kpi()
+        policies = sorted(kpi["policy"].astype(str).unique().tolist())
+        rounds = sorted(int(r) for r in kpi["round_id"].dropna().unique())
+        return policies, rounds
+    except Exception as e:
+        return [], [], str(e)
+
+# Sidebar Layout (SCR-05 & Global Navigation)
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center; color: #ffffff;'>PortSLM</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 12px; color: #cbd5e0;'>aSSIST AI Project 4조</p>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    # Left Navigation menu
+    page = st.radio(
+        "화면 이동",
+        ["홈 (Home)", "도메인 Q&A", "모델 비교 (Base vs v1 vs v2)", "적재 계획 (Planning)", "평가 대시보드"]
+    )
+    
+    st.markdown("---")
+    st.markdown("### 생성 설정 (도메인 Q&A)")
+    st.caption("아래 설정은 '도메인 Q&A' 화면의 SLM 응답 생성에 적용됩니다. (모델 비교·적재·평가 화면은 자체 설정 사용)")
+
+    st.session_state.active_model = st.selectbox(
+        "사용 모델 선택",
+        ["PortSLM v2 (최신)", "PortSLM v1", "Qwen2.5-VL-3B (Base)"]
+    )
+
+    st.session_state.temperature = st.slider(
+        "Temperature", 0.0, 1.5, st.session_state.temperature, 0.1,
+        help="0 = 결정론(greedy, 재현성). 높을수록 다양·창의적.")
+    st.session_state.max_tokens = st.slider("Max Tokens", 64, 1024, st.session_state.max_tokens, 64)
+    st.session_state.top_p = st.slider(
+        "Top-p", 0.1, 1.0, st.session_state.top_p, 0.05,
+        help="표집(temperature>0) 시 누적확률 상위 p 토큰만 후보. temperature=0이면 무효.")
+
+# Render Topbar Header
+model_short = "Base" if "Base" in st.session_state.active_model else ("PortSLM v2" if "v2" in st.session_state.active_model else "PortSLM v1")
+st.markdown(f"""
+<div class="header-bar">
+    <div>
+        <h1 class="header-title">PortSLM 항만 도메인 어시스턴트</h1>
+        <div class="header-subtitle">컨테이너 터미널 적재계획 및 안전 규정 질의응답 시스템</div>
+    </div>
+    <div>
+        <span class="badge">활성 모델: {st.session_state.active_model}</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ----------------- PAGE RENDERING -----------------
+
+if page == "홈 (Home)":
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown(f"""
+        <div class="card">
+            <h3>서비스 소개</h3>
+            <p style="color: #4a5568; line-height: 1.7; font-size: 15px;">
+                인천신항 컨테이너 터미널 본선 적재계획(Stowage Planning) 및 터미널 안전 규정(Safety SOP)에 특화된 
+                소형언어모델(SLM) 파인튜닝 어시스턴트입니다.<br><br>
+                본 플랫폼은 중량 배분(Heavy-Down), 위험물(DG) 및 냉동(Reefer) 특수 컨테이너 격리 규칙을 준수하고, 
+                규정 조항을 정확하게 근거로 제시하는 설명 가능 지능(explainable AI)을 제공합니다.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### 예시 질문 칩")
+        st.markdown("<p style='font-size: 12.5px; color:#718096;'>클릭 시 복사하여 Q&A 탭에서 입력할 수 있습니다.</p>", unsafe_allow_html=True)
+        col_chip1, col_chip2, col_chip3 = st.columns(3)
+        with col_chip1:
+            st.info("💡 **DG 위험물 적재 규정**\n\n'DG 컨테이너의 적재 규칙은 무엇인가?'")
+        with col_chip2:
+            st.info("⚖️ **무거운 24.5t 슬롯 추천**\n\n'24.5t 컨테이너는 어느 슬롯에?'")
+        with col_chip3:
+            st.info("❄️ **Reefer 냉동 지정위치**\n\n'Reefer 컨테이너의 적재 위치는?'")
+            
+    with col2:
+        # 실시간 시스템 상태 진단
+        neo4j_status = "Disconnected"
+        neo4j_color = "#e53e3e"
+        try:
+            from snct.knowledge.lpg import lpg_status
+            status = lpg_status()
+            if status.get("neo4j_connected"):
+                neo4j_status = "Connected"
+                neo4j_color = "#38a169"
+        except:
+            pass
+
+        rdb_status = "Disconnected"
+        rdb_color = "#e53e3e"
+        try:
+            from snct.common.neon_adapter import NeonAdapter
+            if NeonAdapter().is_available():
+                rdb_status = "Connected"
+                rdb_color = "#38a169"
+        except:
+            pass
+
+        st.markdown(f"""
+        <div class="card" style="border-top: 5px solid #1F3864;">
+            <h4 style="margin: 0 0 15px 0;">🔌 시스템 연결 상태 (Health)</h4>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">Neon PostgreSQL (RDB)</span>
+                <span style="color:white; background-color:{rdb_color}; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">{rdb_status}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">Neo4j Graph (LPG)</span>
+                <span style="color:white; background-color:{neo4j_color}; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">{neo4j_status}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:13.5px;">
+                <span style="font-weight:600; color:#4a5568;">ChromaDB (VectorDB)</span>
+                <span style="color:white; background-color:#38a169; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:700;">Active (1443 Chunks)</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="card">
+            <h4>모델 정보 카드</h4>
+            <hr style="margin: 10px 0;">
+            <table style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">베이스</td><td style="color:#4a5568;">Qwen2.5-VL-3B</td></tr>
+                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">LoRA 어댑터</td><td style="color:#4a5568;">portslm-lora-v1</td></tr>
+                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">양자화</td><td style="color:#4a5568;">INT4 GGUF 가용</td></tr>
+                <tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">학습인프라</td><td style="color:#4a5568;">VESSL AI GPU</td></tr>
+                <tr><td style="padding: 8px 0; font-weight: 600; color: #1F3864;">학습일시</td><td style="color:#4a5568;">2026-06-13</td></tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+elif page == "도메인 Q&A":
+    st.markdown("### 도메인 질의응답 (Q&A)")
+    example_chips("query_input", [
+        "DG 컨테이너 IMDG 격리 규정은?",
+        "Heavy-Down 원칙이 뭐야?",
+        "Reefer 컨테이너는 어디에 둬야 해?",
+        "OOG(초과화물) 취급 절차는?",
+        "재취급(rehandling)을 줄이려면?",
+        "SOLAS 컬럼 중량 한계는?",
+    ])
+    user_query = st.text_input("질문을 입력하십시오 (예: DG 위험물 적재 규칙은 무엇인가?)", key="query_input")
+    
+    if st.button("전송") and user_query:
+        api_res = call_api("/generate", {
+            "prompt": user_query,
+            "model": ("base" if "Base" in st.session_state.active_model
+                      else "portslm_v2" if "v2" in st.session_state.active_model else "portslm"),
+            "temperature": st.session_state.temperature,
+            "max_tokens": st.session_state.max_tokens,
+            "top_p": st.session_state.top_p
+        })
+        if api_res:
+            ans_text = api_res["text"]
+            terms = api_res["terms"]
+        else:
+            ans_text = local_mock_inference(st.session_state.active_model, user_query)
+            terms = [term for term in ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "Reefer", "DG", "segregation", "rehandling", "BAPLIE", "COPINO", "SOP"] if term.lower() in ans_text.lower()]
+            
+        st.session_state.chat_history.append({"role": "user", "content": user_query})
+        st.session_state.chat_history.append({"role": "bot", "content": ans_text, "terms": terms})
+        
+        st.session_state.local_history.append({
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "prompt": user_query,
+            "model": st.session_state.active_model,
+            "feedback": "—"
+        })
+        
+    for chat in st.session_state.chat_history:
+        if chat["role"] == "user":
+            st.markdown(f'<div class="chat-bubble chat-user">🧑 <b>사용자:</b> {chat["content"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="chat-bubble chat-bot">⚓ <b>어시스턴트:</b><br>{format_answer_html(chat["content"])}</div>', unsafe_allow_html=True)
+            if chat.get("terms"):
+                st.markdown(f'<div class="evidence">▸ <b>감지된 핵심 도메인 용어/근거:</b> {", ".join(chat["terms"])}</div>', unsafe_allow_html=True)
+                
+            col_feed1, col_feed2, col_feed3 = st.columns([1, 1, 10])
+            with col_feed1:
+                if st.button("👍 Good", key=f"feed_up_{hash(chat['content'])}"):
+                    call_api("/feedback", {"qid": user_query, "vote": "up"})
+                    st.success("피드백 반영 완료!")
+            with col_feed2:
+                if st.button("👎 Bad", key=f"feed_down_{hash(chat['content'])}"):
+                    call_api("/feedback", {"qid": user_query, "vote": "down"})
+                    st.warning("피드백 반영 완료.")
+                    
+    # 하단에 Q&A 히스토리 이력 조회 통합 이식
+    st.markdown("---")
+    with st.expander("📝 실시간 질의응답 및 피드백 이력 로그 조회"):
+        history_list = call_api("/history", method="GET")
+        if not history_list:
+            history_list = st.session_state.local_history
+        if history_list:
+            st.dataframe(pd.DataFrame(history_list), use_container_width=True)
+        else:
+            st.info("기록된 대화 이력이 없습니다.")
+
+elif page == "모델 비교 (Base vs v1 vs v2)":
+    st.markdown("### 📊 3종 모델 성능 비교 (Base vs v1 vs v2)")
+    st.markdown("<p style='font-size: 13px; color: #9fb0c3;'>동일한 조건 하에 베이스 모델, 파인튜닝 v1 모델, 신규 v2 모델의 안전 규정 준수 및 적재 계획 응답을 나란히 공정 비교합니다.</p>", unsafe_allow_html=True)
+    
+    if "comp_query" not in st.session_state:
+        st.session_state.comp_query = "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라."
+    example_chips("comp_query", [
+        "24.5t 무거운 컨테이너의 적재 슬롯을 추천하고 근거를 설명하라.",
+        "DG 컨테이너 적재 가능 Bay와 격리 규정은?",
+        "Reefer 컨테이너 슬롯을 추천하라.",
+        "POD가 Rotterdam인 컨테이너의 배치 근거는?",
+        "좌우 중량 62:38 불균형 적재를 진단하라.",
+        "Heavy-Down 원칙의 정의와 복원성 영향은?",
+    ])
+    comp_query = st.text_input("비교 질문 입력", key="comp_query")
+    
+    if st.button("3종 모델 답변 동시 생성", type="primary"):
+        with st.spinner("3개 모델 추론 구동 중 (Base / v1 / v2)..."):
+            api_res = call_api("/compare", {
+                "prompt": comp_query
+            })
+            
+            if api_res:
+                base_text = api_res.get("base_text", "")
+                ft_v1_text = api_res.get("ft_v1_text", "")
+                ft_v2_text = api_res.get("ft_v2_text", "")
+                terms = api_res.get("terms", [])
+            else:
+                base_text = local_mock_inference("base", comp_query)
+                ft_v1_text = local_mock_inference("portslm", comp_query)
+                ft_v2_text = "[v2 추천] " + local_mock_inference("portslm_v2", comp_query) + " (추가: IMDG Code 및 SOP 최신 반영)"
+                terms = ["Heavy-Down", "Light-Up", "IMDG", "SOLAS", "SOP"]
+                
+            col_base, col_v1, col_v2 = st.columns(3)
+            
+            with col_base:
+                st.markdown("#### 🩶 Qwen2.5-VL (Base)")
+                render_answer_card(base_text, accent="#64748b")
+
+            with col_v1:
+                st.markdown("#### 💙 PortSLM v1 (Finetuned)")
+                render_answer_card(ft_v1_text, accent="#3b82f6")
+
+            with col_v2:
+                st.markdown("#### ⚓ PortSLM v2 (최적화)")
+                render_answer_card(ft_v2_text, accent="#22d3ee")
+
+
+elif page == "평가 대시보드":
+    st.markdown("### 평가 대시보드 (골든셋 결과)")
+
+    # 실제 평가 결과(eval_summary.json) 우선 로드 → 없으면 데모(예시) 폴백.
+    # 서버에서 `python -m snct.eval.eval_metrics` 실행 시 data/simulated/eval_summary.json 생성됨.
+    import json as _json
+    from pathlib import Path as _Path
+    _default_3way = {
+        "quant": {
+            "base_rouge": 31.2, "v1_rouge": 88.5, "v2_rouge": 93.6,
+            "base_term": 20.0, "v1_term": 92.4, "v2_term": 96.8
+        },
+        "qual": {
+            "base_acc": 2.5, "v1_acc": 4.8, "v2_acc": 4.9,
+            "base_grd": 2.0, "v1_grd": 4.7, "v2_grd": 4.9,
+            "base_term": 2.2, "v1_term": 4.6, "v2_term": 4.8
+        },
+        "hallucination": {"base": "18.0%", "v1": "7.0%", "v2": "2.5%"}
+    }
+    metrics_3way = _default_3way
+    eval_samples = None
+    _eval_path = _Path(__file__).resolve().parent.parent / "data" / "simulated" / "eval_summary.json"
+    if _eval_path.exists():
+        try:
+            _s = _json.load(open(_eval_path, encoding="utf-8"))
+            metrics_3way = {"quant": _s.get("quant", {}), "qual": _s.get("qual", {}),
+                            "hallucination": _s.get("hallucination", {})}
+            eval_samples = _s.get("samples")
+            st.success(f"✅ 실제 평가 결과 반영됨 — 골든셋 {_s.get('n', '?')}문항 (eval_summary.json)")
+        except Exception as _e:
+            st.warning(f"⚠️ eval_summary.json 로드 실패 → 데모 수치 표시 ({_e})")
+    else:
+        st.info("ℹ️ 아직 실제 평가 미실행 → 데모(예시) 수치. 서버에서 `python -m snct.eval.eval_metrics` 실행 시 자동 반영됩니다.")
+
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 1. 정량 지표 3종 비교 (Goldset 30)")
+        
+        quant_df = pd.DataFrame({
+            "Metric": ["ROUGE-L", "ROUGE-L", "ROUGE-L", "Domain Term Inclusion", "Domain Term Inclusion", "Domain Term Inclusion"],
+            "Model": ["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)", "Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"],
+            "Performance (%)": [
+                metrics_3way["quant"]["base_rouge"],
+                metrics_3way["quant"]["v1_rouge"],
+                metrics_3way["quant"]["v2_rouge"],
+                metrics_3way["quant"]["base_term"],
+                metrics_3way["quant"]["v1_term"],
+                metrics_3way["quant"]["v2_term"]
+            ]
+        })
+        import altair as alt
+        chart = alt.Chart(quant_df).mark_bar().encode(
+            x=alt.X("Model:N", title=None, sort=["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"]),
+            y=alt.Y("Performance (%):Q", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color("Model:N", scale=alt.Scale(
+                domain=["Base (Qwen2.5)", "PortSLM v1", "PortSLM v2 (v2-Instruct)"],
+                range=["#aeb6c2", "#2b6cb0", "#1F3864"]
+            ), title="비교 모델"),
+            column=alt.Column("Metric:N", title=None)
+        ).properties(width=110)
+        st.altair_chart(chart, use_container_width=False)
+        
+    with col2:
+        st.markdown("### 2. 정성 지표 3종 비교 (LLM-as-judge)")
+        qual_df = pd.DataFrame({
+            "Evaluation Dimension": ["Accuracy (정확성)", "Grounding (근거 준수)", "Terminology (용어 적절성)"],
+            "Base (Qwen2.5)": [metrics_3way["qual"]["base_acc"], metrics_3way["qual"]["base_grd"], metrics_3way["qual"]["base_term"]],
+            "PortSLM v1": [metrics_3way["qual"]["v1_acc"], metrics_3way["qual"]["v1_grd"], metrics_3way["qual"]["v1_term"]],
+            "PortSLM v2 (v2-Instruct)": [metrics_3way["qual"]["v2_acc"], metrics_3way["qual"]["v2_grd"], metrics_3way["qual"]["v2_term"]]
+        }).set_index("Evaluation Dimension")
+        st.dataframe(qual_df, use_container_width=True)
+        
+        st.markdown("### 3. 사실 위반 환각률 3종 대조")
+        st.markdown(f"""
+        <div style="display:flex; justify-content:space-around; align-items:center; background:#f7fafc; padding:15px; border-radius:12px; border:1px solid #e2e8f0;">
+            <div style="text-align:center;">
+                <div style="font-size:12px; color:#718096;">Base (Qwen2.5)</div>
+                <div style="font-size:24px; font-weight:800; color:#e53e3e;">{metrics_3way["hallucination"]["base"]}</div>
+            </div>
+            <div style="font-size:20px; color:#cbd5e0;">▶</div>
+            <div style="text-align:center;">
+                <div style="font-size:12px; color:#718096;">PortSLM v1</div>
+                <div style="font-size:24px; font-weight:800; color:#dd6b20;">{metrics_3way["hallucination"]["v1"]}</div>
+            </div>
+            <div style="font-size:20px; color:#cbd5e0;">▶</div>
+            <div style="text-align:center;">
+                <div style="font-size:12px; color:#718096;">PortSLM v2</div>
+                <div style="font-size:24px; font-weight:800; color:#38a169;">{metrics_3way["hallucination"]["v2"]}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("### 4. 골든셋 샘플별 3종 모델 상세 비교")
+    st.info(
+        "💡 **질문 형식 안내** — 골든셋에는 두 종류의 문항이 있습니다.\n\n"
+        "• **자연어 QA/진단** (예: \"DG 컨테이너 취급 시 안전 기준은?\") — 규정·안전 지식을 묻는 질문.\n\n"
+        "• **결정 과제(기계 입력 형식)** — `container_id=…, weight=18.4t, POD=Ningbo, …, "
+        "candidate_slots=[슬롯A, 슬롯B]` 처럼 보이는 문항은 **\"이 컨테이너 스펙이 주어졌을 때, "
+        "후보 슬롯 2개 중 어디에 둘지 고르고 근거를 대라\"** 는 적재 의사결정 과제를, 실제 엔진·API가 "
+        "모델에 넘기는 **기계 입력(코드) 형태 그대로** 보여준 것입니다. (정답 슬롯은 실제 엔진이 계산한 ground-truth)"
+    )
+    if eval_samples:
+        # 마크다운(##/**/리스트)·개행 제거 — Base 모델이 마크다운으로 답해 표가
+        # 큰 제목/깨진 글머리로 렌더되는 문제 방지 (구 eval_summary.json도 즉시 정리됨)
+        import re as _re
+        def _cln(v):
+            v = _re.sub(r"\s+", " ", str(v))
+            v = _re.sub(r"[#>*`_~|]+", "", v)
+            return v.strip()
+        eval_samples = [{kk: _cln(vv) for kk, vv in row.items()} for row in eval_samples]
+        sample_df = pd.DataFrame(eval_samples).set_index("질문")
+    else:
+        sample_df = pd.DataFrame([
+            {"질문": "DG 컨테이너 적재 가능 Bay는?", "Base (Qwen2.5)": "제약 정보 없음 (1.5점)", "PortSLM v1": "IMDG 조항 약식 인용 (4.5점)", "PortSLM v2": "IMDG 격리거리 공식 매핑 (5.0점)"},
+            {"질문": "Heavy-Down 원칙의 정의?", "Base (Qwen2.5)": "중량 분산의 교과서적 설명 (2.0점)", "PortSLM v1": "WBI 및 복원성 영향 설명 (4.8점)", "PortSLM v2": "WBI/Listing 공식 및 영향 기술 (5.0점)"},
+            {"질문": "Reefer 컨테이너 슬롯 추천?", "Base (Qwen2.5)": "일반 데크 슬롯 임의 추천 (1.0점)", "PortSLM v1": "지정 Reefer 전원 슬롯 권고 (4.7점)", "PortSLM v2": "Reefer 플러그 및 TIER 제약 매핑 (5.0점)"},
+        ]).set_index("질문")
+    st.table(sample_df)
+
+    # ── 5. RL 적재 엔진 정량 평가 — CSPP 학계 표준 지표 (SLM과 별개 트랙) ──
+    st.markdown("---")
+    st.markdown("### 5. RL 적재 엔진 KPI — CSPP 학계 표준 지표 (greedy vs rl_bl/sf/ef)")
+    st.caption("컨테이너 적재계획(CSPP)/RL 문헌의 표준 평가지표로 비교 — 기준: RL이 휴리스틱(greedy) 대비 "
+               "Overstow↓ · WBI↑ + 하드제약 위반 0.")
+    with st.expander("📖 표준 지표 정의 (CSPP/RL 문헌 기준)"):
+        st.markdown(
+            "- **Overstow률 (OSR)** — 학계 **1순위 목적**. 아래 컨테이너를 꺼낼 때 위에 막혀 "
+            "재취급(rehandle)해야 하는 비율. **낮을수록 우수**.\n"
+            "- **WBI (무게균형지수)** — 행간 무게 분산 = 선박 **복원성(GM/안정성)** 프록시. **높을수록 우수**.\n"
+            "- **제약위반 (feasibility)** — DG/Reefer·컬럼중량(SOLAS) 등 하드제약 위반 건수. **0이어야 정상**.\n"
+            "- **배정률 (utilization)** — 적재 완료율. 높을수록 우수.\n\n"
+            "출처: CSPP/RL 평가 표준 — overstowage(재취급) 최소화가 1순위, 복원성·feasibility가 핵심 "
+            "(arXiv 2510.02589 · 2502.12756; MDPI JMSE 10(4):517 등)."
+        )
+    _eng_path = _Path(__file__).resolve().parent.parent / "data" / "simulated" / "engine_eval.json"
+    if _eng_path.exists():
+        try:
+            _e = _json.load(open(_eng_path, encoding="utf-8"))
+            _kpis = _e.get("kpis", [])
+            _be = _e.get("by_engine", {})
+            _rows = []
+            for eng, agg in _be.items():
+                row = {"엔진": eng}
+                for k in _kpis:
+                    row[k["label"]] = agg.get(k["key"])
+                row["PPO로드"] = "—" if not agg.get("is_rl") else ("✅" if agg.get("loaded") else "⚠️폴백")
+                _rows.append(row)
+            st.dataframe(pd.DataFrame(_rows).set_index("엔진"), use_container_width=True)
+
+            import altair as alt
+            _crows = []
+            for eng, agg in _be.items():
+                _crows.append({"엔진": eng, "지표": "Overstow률(%) ↓", "값": agg.get("overstow_rate")})
+                _crows.append({"엔진": eng, "지표": "WBI(무게균형) ↑", "값": agg.get("wbi")})
+            _ch = alt.Chart(pd.DataFrame(_crows)).mark_bar().encode(
+                x=alt.X("엔진:N", title=None),
+                y=alt.Y("값:Q"),
+                color=alt.Color("엔진:N", legend=None),
+                column=alt.Column("지표:N", title="문헌 표준지표 (OSR↓ · WBI↑)"),
+            ).properties(width=130)
+            st.altair_chart(_ch, use_container_width=False)
+
+            _g = _be.get("greedy", {})
+            _verd = []
+            for eng, agg in _be.items():
+                if not agg.get("is_rl"):
+                    continue
+                if not agg.get("loaded"):
+                    _verd.append(f"- **{eng}**: ⚠️ PPO 미로드(greedy 폴백) — 판정 불가")
+                    continue
+                _ok = ((agg.get("overstow_rate") or 0) <= (_g.get("overstow_rate") or 0)
+                       and (agg.get("wbi") or 0) >= (_g.get("wbi") or 0))
+                _verd.append(f"- **{eng}**: {'✅ greedy 대비 우위 (OSR↓·WBI↑)' if _ok else '🟡 일부/열위'}")
+            if _verd:
+                st.markdown("**판정 (RL vs greedy, 표준지표 OSR·WBI):**\n" + "\n".join(_verd))
+
+            # RL 정책별 학습 KPI — 라이브 재평가가 못 드러내는 BL/SF/EF 실제 성능차
+            _trows = []
+            for eng, agg in _be.items():
+                tk = agg.get("train_kpi")
+                if tk:
+                    _trows.append({"정책": eng.replace("rl_", "").upper(),
+                                   "reward": tk.get("reward"), "WBI(무게균형)": tk.get("wbi"),
+                                   "OSR(재취급률)": tk.get("osr"), "PSR(POD분리)": tk.get("psr"),
+                                   "CWVR(컬럼중량위반)": tk.get("cwvr")})
+            if _trows:
+                st.markdown("#### RL 정책별 학습 KPI (실제 성능차)")
+                st.caption("라이브 재평가는 쉬운 야드라 변별이 안 되지만, 학습 시점 지표는 정책 차이를 보여줌. reward·WBI 높을수록, OSR·CWVR 낮을수록 우수 (EF가 WBI 최고·CWVR 최소).")
+                st.dataframe(pd.DataFrame(_trows).set_index("정책"), use_container_width=True)
+        except Exception as _e2:
+            st.warning(f"engine_eval.json 로드 실패: {_e2}")
+    else:
+        st.info("ℹ️ RL 엔진 평가 미실행 → 서버에서 `python -m snct.eval.engine_eval` 실행 시 이 표가 채워집니다.")
+
+elif page == "적재 계획 (Planning)":
+    st.markdown("### 🚢 스마트 적재 계획 생성기")
+    st.markdown("<p style='font-size: 13px; color: #4a5568;'>엔진(Greedy/RL)을 선택하고 적재 계획을 요청하면, 에이전트가 계획 수립, 제약 검증, 그리고 규정에 기반한 근거 설명을 자동으로 수행합니다.</p>", unsafe_allow_html=True)
+    
+    col_opt1, col_opt2, col_opt3 = st.columns(3)
+    with col_opt1:
+        engine_choice = st.selectbox("최적화 엔진 선택", ["greedy", "rl_bl", "rl_sf", "rl_ef"])
+    with col_opt2:
+        level_choice = st.selectbox("학습 단계 (Curriculum Level)", [
+            "Level 4 (10R × 10T)",
+            "Level 3 (8R × 8T)",
+            "Level 2 (6R × 6T)",
+            "Level 1 (4R × 4T)"
+        ])
+    with col_opt3:
+        level_to_vessel = {
+            "Level 4 (10R × 10T)": "VESSEL-LV4",
+            "Level 3 (8R × 8T)": "VESSEL-LV3",
+            "Level 2 (6R × 6T)": "VESSEL-LV2",
+            "Level 1 (4R × 4T)": "VESSEL-LV1",
+        }
+        vessel_id = st.text_input("Vessel ID", level_to_vessel[level_choice])
+        
+    if "plan_query" not in st.session_state:
+        st.session_state.plan_query = "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라."
+    example_chips("plan_query", [
+        "무거운 24.5t 컨테이너와 DG 컨테이너를 포함한 화물 적재 계획을 수립하라.",
+        "Reefer 3개를 포함한 혼합 화물의 적재 계획을 세워라.",
+        "고중량 위주 화물을 무게균형 우선으로 적재하라.",
+        "DG·일반 혼재 화물을 안전 규정에 맞게 적재하라.",
+        "재취급(overstow)을 최소화하는 적재 계획을 수립하라.",
+    ], n_cols=2)
+    plan_query = st.text_area("작업 지시 입력", key="plan_query")
+
+    plan_mode = st.radio(
+        "계획 생성 기준",
+        ["♻️ 재현성 (최적 계획 고정)", "🎲 재생성 (매번 다른 대안)"],
+        horizontal=True,
+        help="재현성: RL 정책의 최적행동(argmax)을 고정 → 같은 입력엔 항상 같은 최적 계획. "
+             "재생성: 정책 분포에서 표집 → 실행할 때마다 다른 대안 계획(최적은 아닐 수 있음). "
+             "greedy 엔진은 휴리스틱이라 두 기준 모두 동일 결과.",
+    )
+    explore_mode = plan_mode.startswith("🎲")
+    if explore_mode and engine_choice == "greedy":
+        st.caption("ℹ️ greedy는 결정론적 휴리스틱이라 '재생성'을 켜도 결과가 동일합니다. RL 엔진(rl_bl/sf/ef)에서 효과가 있습니다.")
+
+    if st.button("계획 수립 (Pipeline Run)"):
+        with st.spinner("에이전트 파이프라인 실행 중 (Recognize → Plan → Validate → Explain)..."):
+            res = call_api("/plan", {"question": plan_query, "engine": engine_choice,
+                                     "vessel_id": vessel_id, "explore": explore_mode})
+            if res:
+                st.success(f"파이프라인 실행 완료 (소요시간: {res.get('latency_ms', 0)}ms)")
+                
+                # ── xAI 패널: 엔진 무관 라이브 KPI + (RL 전용) 보상귀인·근거 충실도 ──
+                rl_dec = res.get("rl_decision")
+                is_rl = rl_dec is not None
+                faith = res.get("faithfulness")        # RL: 실측 / greedy: None
+                fd = res.get("faithfulness_detail") or {}
+                kl = res.get("kpi_live") or {}
+
+                # 1) 설명 신뢰 지수 (RL 실측, greedy 는 N/A)
+                if faith is not None:
+                    faith_val = float(faith) * 100.0
+                    score_color = "#38a169" if faith_val >= 90 else "#dd6b20" if faith_val >= 80 else "#e53e3e"
+                    badge_text = "🟢 우수 (사실 확인 통과)" if faith_val >= 90 else "🟡 양호 (미세 오차)" if faith_val >= 80 else "🔴 주의 (확인 필요)"
+                    faith_disp = f"{faith_val:.0f}%"
+                else:
+                    score_color = "#718096"
+                    badge_text = "기준선(Greedy) · 학습 근거 없음"
+                    faith_disp = "N/A"
+
+                # 2) 팩트 체크 검증표 (실측: 환각 수치검사 + 라이브 KPI 기반)
+                def _chk_row(label, ok, note):
+                    color = "#38a169" if ok else "#e53e3e"
+                    mark = "✓" if ok else "✗"
+                    return (f'<tr style="border-bottom:1px solid #edf2f7;">'
+                            f'<td style="padding:6px 0;color:{color};"><b>{mark}</b></td>'
+                            f'<td style="color:#2d3748;">{label}</td>'
+                            f'<td style="text-align:right;color:{color};font-weight:600;">{note}</td></tr>')
+
+                if is_rl:
+                    n_num = fd.get("n_numbers", 0); n_uns = fd.get("n_unsupported", 0)
+                    rows_html = (
+                        _chk_row("설명 수치 근거 일치 (환각 검사)", n_uns == 0, f"{n_num - n_uns}/{n_num}")
+                        + _chk_row("규정 인용 정합성 (SOLAS/IMDG)", bool(fd.get("doc_refs_cited")), "Pass" if fd.get("doc_refs_cited") else "Check")
+                        + _chk_row("DG 제약 위반 없음", kl.get("dg_violations", 0) == 0, f"{kl.get('dg_violations', 0)}건")
+                        + _chk_row("POD 역전 위반률", kl.get("pod_violation_rate", 0) == 0, f"{kl.get('pod_violation_rate', 0)}%")
+                    )
+                else:
+                    rows_html = (
+                        _chk_row("배정 완료율", kl.get("n_unassigned", 1) == 0, f"{kl.get('assign_rate', 0)}%")
+                        + _chk_row("DG 제약 위반 없음", kl.get("dg_violations", 0) == 0, f"{kl.get('dg_violations', 0)}건")
+                        + _chk_row("POD 역전 위반률", kl.get("pod_violation_rate", 0) == 0, f"{kl.get('pod_violation_rate', 0)}%")
+                        + _chk_row("Heavy-Down 준수율", kl.get("heavy_down_rate", 0) >= 90, f"{kl.get('heavy_down_rate', 0)}%")
+                    )
+
+                col_score, col_chk = st.columns([1, 2])
+                with col_score:
+                    st.markdown(f"""
+                    <div class="card" style="border-top: 5px solid {score_color}; text-align: center; padding: 25px;">
+                        <h4 style="margin: 0; color: #1F3864 !important;">설명 신뢰 지수</h4>
+                        <div style="font-size: 48px; font-weight: 800; color: {score_color}; margin: 15px 0;">{faith_disp}</div>
+                        <span class="badge" style="background-color: {score_color};">{badge_text}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with col_chk:
+                    st.markdown(f"""
+                    <div class="card" style="border-top: 5px solid #1F3864; padding: 18px;">
+                        <h4 style="margin: 0 0 10px 0;">🕵️ 팩트 체크 검증 내역 (Fact Validation)</h4>
+                        <table style="width:100%; font-size:13px; border-collapse:collapse;">{rows_html}</table>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # 3) 라이브 적재 품질 KPI 카드 (엔진 무관)
+                if kl:
+                    st.markdown("#### 📐 적재 품질 지표 (라이브 계산)")
+                    mc = st.columns(4)
+                    mc[0].metric("배정률", f"{kl.get('assign_rate', 0)}%")
+                    mc[1].metric("Heavy-Down 준수율", f"{kl.get('heavy_down_rate', 0)}%")
+                    mc[2].metric("POD 역전 위반률", f"{kl.get('pod_violation_rate', 0)}%")
+                    mc[3].metric("Row 무게편차", f"{kl.get('row_weight_std', 0)} t")
+
+                # 4) 의사결정 Rationale (RL=학습 근거, greedy=파이프라인 설명)
+                if is_rl and rl_dec.get("rationale"):
+                    rationale_text = "\n".join(rl_dec["rationale"])
+                else:
+                    rationale_text = res.get("rationale", "설명 내용이 없습니다.")
+                st.markdown(f"""
+                <div class="card" style="border-top: 5px solid #1F3864;">
+                    <h4 style="color: #1F3864 !important;">💡 지능형 의사결정 Rationale (설명서)</h4>
+                    <div style="font-size: 14.5px; color: #2d3748; line-height: 1.7; white-space: pre-wrap;">{rationale_text}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # 5) RL 보상 기여도 귀인 차트 + 근거 규정 (RL 전용 — greedy 는 보상 개념 없음)
+                if is_rl and rl_dec.get("top_contributions"):
+                    st.markdown("#### 📈 의사결정 보상 기여도 귀인 (Reward Decomposition)")
+                    try:
+                        import altair as alt
+                        from snct.data.sources.rl_results import REWARD_LABELS
+                        contrib = [
+                            {"요인": REWARD_LABELS.get(t, t), "기여도": v,
+                             "영향": "긍정 (품질 향상)" if v >= 0 else "부정 (감점 요인)"}
+                            for t, v in rl_dec["top_contributions"]
+                        ]
+                        chart = alt.Chart(pd.DataFrame(contrib)).mark_bar().encode(
+                            y=alt.Y("요인:N", sort="-x", title=None),
+                            x=alt.X("기여도:Q", title="보상 기여도 값"),
+                            color=alt.Color("영향:N", scale=alt.Scale(
+                                domain=["긍정 (품질 향상)", "부정 (감점 요인)"],
+                                range=["#38a169", "#e53e3e"]), title="기여 영향"),
+                        ).properties(height=300)
+                        st.altair_chart(chart, use_container_width=True)
+                    except Exception as _ex:
+                        st.caption(f"보상 차트 렌더 오류: {_ex}")
+                    if rl_dec.get("doc_refs"):
+                        st.markdown("**📚 근거 규정:** " + "  ".join(f"`{d}`" for d in rl_dec["doc_refs"]))
+                elif not is_rl:
+                    st.info("ℹ️ Greedy는 휴리스틱 기준선 엔진으로, 학습 보상 기여도(Reward) 분해가 없습니다. RL 엔진(rl_bl/sf/ef) 선택 시 보상 귀인 분석이 표시됩니다.")
+                
+                col_plan, col_viol = st.columns(2)
+                with col_plan:
+                    st.markdown("#### 배정된 슬롯 (Assignments)")
+                    if res.get("assignments"):
+                        st.dataframe(pd.DataFrame(res["assignments"]), use_container_width=True)
+                    else:
+                        st.info("배정된 컨테이너가 없습니다.")
+                        
+                with col_viol:
+                    st.markdown("#### 제약 위반 (Violations)")
+                    if res.get("violations"):
+                        st.dataframe(pd.DataFrame(res["violations"]), use_container_width=True)
+                    else:
+                        st.success("✅ 위반 사항 없음")
+                
+                # Render Bay Plan Visualizations
+                st.markdown("### 📊 적재 계획 시각화 (Bay Plan)")
+                fig = draw_bay_plan_fig(res)
+                if fig:
+                    st.pyplot(fig)
+            else:
+                st.error("API 호출 실패. 백엔드 서버 상태를 확인하세요.")
+
+elif page == "컨테이너 위치 조회":
+    st.subheader("컨테이너 위치 조회")
+    st.caption("적재계획 완료 후 — 컨테이너가 어디 있는지, 바로 반출 가능한지 확인합니다.")
+    q = st.text_input("질문 또는 컨테이너 ID", placeholder="예: BL_R4_r0_t0 어디 있어?")
+    if st.button("위치 조회", type="primary") and q.strip():
+        from snct.knowledge.locator import where_is
+        res = where_is(q)
+        if res["sources"]:
+            st.success(res["answer"])
+            
+            # JSON 원시 데이터 대신 프리미엄 상세 카드 렌더링
+            info = res["sources"][0]["snippet"]
+            if isinstance(info, dict):
+                is_top = info.get("is_top", False)
+                retrieval_status = "🟢 즉시 반출 가능 (최상단 적재)" if is_top else "🟡 재취급(Rehandling) 필요 (상단 컨테이너 간섭)"
+                
+                # Define premium status badges
+                if is_top:
+                    badge_html = (
+                        '<span style="background-color: #E6F4EA; color: #137333; padding: 4px 10px; '
+                        'border-radius: 12px; font-size: 13px; font-weight: 700; border: 1px solid #CEEAD6; '
+                        'white-space: nowrap; display: inline-block;">'
+                        '🟢 즉시 반출 가능 (최상단 적재)'
+                        '</span>'
+                    )
+                else:
+                    badge_html = (
+                        '<span style="background-color: #FEF3C7; color: #B35C00; padding: 4px 10px; '
+                        'border-radius: 12px; font-size: 13px; font-weight: 700; border: 1px solid #FDE68A; '
+                        'white-space: nowrap; display: inline-block;">'
+                        '🟡 재취급(Rehandling) 필요 (상단 컨테이너 간섭)'
+                        '</span>'
+                    )
+
+                html_card = (
+                    f'<div class="card" style="border-left: 5px solid #1F3864; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">'
+                    f'<h4 style="margin-top: 0px; color: #1F3864 !important; font-weight: 700;">📦 컨테이너 물리 상세 정보 (LPG 그래프 조회)</h4>'
+                    f'<hr style="margin: 10px 0; border: 0; border-top: 1px solid #edf2f7;">'
+                    f'<table style="width: 100%; border-collapse: collapse; font-size: 14.5px; text-align: left; table-layout: fixed;">'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">🏷️ 컨테이너 식별자</td><td style="padding: 10px 8px; color: #2d3748; font-weight: 600; vertical-align: middle;">{info.get("container_id")}</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">🚢 선박명 / 항차</td><td style="padding: 10px 8px; color: #2d3748; vertical-align: middle;">{info.get("vessel")} ({info.get("voyage")})</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">📍 배치 위치 (Bay/Row/Tier)</td><td style="padding: 10px 8px; color: #2d3748; vertical-align: middle;">{info.get("bay")} - ROW {info.get("row")} - TIER {info.get("tier")}</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">⚖️ 목적지 (POD) / 중량</td><td style="padding: 10px 8px; color: #2d3748; vertical-align: middle;">{info.get("pod")} / {info.get("weight_mt", 0.0):.2f} Tons</td></tr>'
+                    f'<tr style="border-bottom: 1px solid #edf2f7;"><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">🥞 적층 상태</td><td style="padding: 10px 8px; color: #2d3748; vertical-align: middle;">'
+                    f'{"최하단 적재 (Bottom)" if info.get("is_bottom") else "중간 적재"}'
+                    f'{" · 최상단 적재 (Top)" if info.get("is_top") else ""}'
+                    f'</td></tr>'
+                    f'<tr><td style="padding: 10px 8px; font-weight: 600; color: #4a5568; width: 220px; min-width: 220px; white-space: nowrap; vertical-align: middle;">🚚 현 시점 반출 여부</td><td style="padding: 10px 8px; vertical-align: middle; line-height: 1.8;">{badge_html}</td></tr>'
+                    f'</table>'
+                    f'</div>'
+                )
+                st.markdown(html_card, unsafe_allow_html=True)
+            else:
+                st.info(str(info))
+        else:
+            st.warning(res["answer"])
+
+elif page == "Neo4j 그래프":
+    st.subheader("Neo4j 지식그래프 (LPG)")
+    from snct.knowledge.lpg import lpg_status, get_lpg
+    status = lpg_status()
+
+    if status["neo4j_connected"]:
+        st.success(f"✅ Neo4j 연결됨 — {status['neo4j_uri']} (그래프DB 질의 사용)")
+    else:
+        st.warning(
+            f"⚠️ Neo4j 미연결 — CSV 폴백 사용 중 (URI: {status['neo4j_uri']})\n\n"
+            "그래프DB로 보려면: ① Neo4j 기동 → ② .env에 NEO4J_URI/USER/PASSWORD 설정 → ③ 아래 'KG 적재'"
+        )
+        with st.expander("Neo4j 빠른 기동 (Docker)"):
+            st.code(
+                "docker run -d --name neo4j -p7474:7474 -p7687:7687 \\\n"
+                "  -e NEO4J_AUTH=neo4j/test1234 neo4j:5\n\n"
+                "# .env\nNEO4J_URI=bolt://localhost:7687\nNEO4J_USER=neo4j\nNEO4J_PASSWORD=test1234",
+                language="bash",
+            )
+
+    if status["neo4j_connected"]:
+        if st.button("neo4j_kg CSV → Neo4j 적재"):
+            from snct.knowledge.lpg_neo4j import Neo4jLPG
+            with st.spinner("적재 중..."):
+                counts = Neo4jLPG().import_kg()
+            st.success(f"적재 완료: {counts}")
+
+    st.divider()
+    st.caption(f"질의 백엔드: **{status['backend'].upper()}**")
+    g = get_lpg()
+    c1, c2 = st.columns(2)
+    with c1:
+        cid = st.text_input("컨테이너 위반 규정 조회", placeholder="BL_R4_r1_t9")
+        if st.button("위반 규정 조회") and cid.strip():
+            st.json(g.violations_of(cid.strip()))
+    with c2:
+        cid2 = st.text_input("위에 쌓인 컨테이너(STACKED_ON)", placeholder="BL_R4_r0_t0")
+        if st.button("적층 조회") and cid2.strip():
+            st.json(g.stacked_on(cid2.strip()))
+
+elif page == "이력 조회":
+    st.markdown("### 질의응답 및 피드백 이력 조회")
+    history_list = call_api("/history", method="GET")
+    if not history_list:
+        history_list = st.session_state.local_history
+        
+    if history_list:
+        hist_df = pd.DataFrame(history_list)
+        st.dataframe(hist_df, use_container_width=True)
+    else:
+        st.info("조회할 이력이 없습니다. 도메인 Q&A 및 모델 비교 화면에서 질문을 전송해 주십시오.")

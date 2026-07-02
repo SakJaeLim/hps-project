@@ -4,13 +4,34 @@ import torch
 import random
 import argparse
 from datasets import Dataset
-from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 from trl import SFTConfig, SFTTrainer
 
 # Reproducibility
 random.seed(42)
 torch.manual_seed(42)
+
+def sanitize_hf_token_env():
+    """HF 토큰 env 에 비ASCII/공백이 섞이면 HTTP 헤더(Authorization: Bearer ...)를
+    latin-1 로 인코딩할 때 UnicodeEncodeError 가 나며 다운로드가 통째로 실패한다.
+    베이스 모델은 public 이므로 오염된 토큰은 비우고 익명 다운로드로 진행한다.
+    (private repo 업로드용 토큰은 merge_upload.py 가 --hf-token 으로 따로 받는다)"""
+    for var in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_HUB_TOKEN"):
+        val = os.environ.get(var)
+        if not val:
+            continue
+        clean = val.strip()
+        try:
+            clean.encode("latin-1")
+        except UnicodeEncodeError:
+            print(f"[warn] {var} 에 비ASCII 문자가 있어 베이스 모델 다운로드를 막습니다 "
+                  f"→ 비우고 익명(공개) 다운로드로 진행합니다. (VESSL 시크릿 점검 필요)")
+            os.environ.pop(var, None)
+            continue
+        if clean != val:
+            os.environ[var] = clean
+            print(f"[info] {var} 의 앞뒤 공백/개행을 정리했습니다.")
 
 def remove_think_blocks(text):
     return str(text or "").replace("<think>\n\n</think>\n\n", "").strip()
@@ -38,18 +59,11 @@ def load_jsonl_dataset(path):
 def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruct", smoke_run=False, use_qlora=True):
     has_cuda = torch.cuda.is_available()
     print(f"CUDA Available: {has_cuda}")
-    
-    print(f"Loading tokenizer/processor: {model_id}")
-    is_vl = "vl" in model_id.lower()
-    if is_vl:
-        print("VL model detected, loading AutoProcessor...")
-        from transformers import AutoProcessor
-        processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
-        tokenizer = processor.tokenizer
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-        processor = tokenizer
-        
+
+    sanitize_hf_token_env()  # 오염된 HF 토큰 env 로 인한 다운로드 크래시 방지
+
+    print(f"Loading tokenizer: {model_id}")
+    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         
@@ -130,53 +144,51 @@ def train(train_path, val_path, output_dir, model_id="Qwen/Qwen2.5-VL-3B-Instruc
         report_to=[] # Do not report in smoke run, or add ["wandb"] otherwise
     )
     
+    # TRL collate_fn for assistant loss masking only
     def collate_fn(batch):
-        texts = []
-        for example in batch:
-            if processor:
-                prompt = processor.apply_chat_template(
-                    example["messages"], tokenize=False,
-                    add_generation_prompt=False)
-            else:
-                prompt = tokenizer.apply_chat_template(
-                    example["messages"], tokenize=False,
-                    add_generation_prompt=False)
-            
-            prompt = remove_think_blocks(prompt)
-            texts.append(prompt)
-            
-        if processor:
-            inputs = processor(text=texts, padding=True, truncation=True, max_length=max_length, return_tensors="pt")
-        else:
-            inputs = tokenizer(texts, padding=True, truncation=True, max_length=max_length, return_tensors="pt")
-            
-        input_ids = inputs["input_ids"]
-        labels = input_ids.clone()
-        
+        new_batch = {"input_ids": [], "attention_mask": [], "labels": []}
         assistant_tokens = tokenizer.encode("<|im_start|>assistant\n", add_special_tokens=False)
         end_tokens       = tokenizer.encode("<|im_end|>", add_special_tokens=False)
         
-        for idx in range(len(input_ids)):
-            seq = input_ids[idx].tolist()
-            i, n = 0, len(seq)
-            labels[idx, :] = -100
+        for example in batch:
+            prompt = tokenizer.apply_chat_template(
+                example["messages"], tokenize=False,
+                add_generation_prompt=False)
+            prompt = remove_think_blocks(prompt)
             
+            tok = tokenizer(prompt, truncation=True, max_length=max_length,
+                            padding=False, return_tensors=None)
+            input_ids, attention_mask = tok["input_ids"], tok["attention_mask"]
+            labels = [-100] * len(input_ids)
+            
+            i, n = 0, len(input_ids)
             while i <= n - len(assistant_tokens):
-                if seq[i:i+len(assistant_tokens)] == assistant_tokens:
+                if input_ids[i:i+len(assistant_tokens)] == assistant_tokens:
                     s = i + len(assistant_tokens)
                     e = s
                     while e <= n - len(end_tokens):
-                        if seq[e:e+len(end_tokens)] == end_tokens:
+                        if input_ids[e:e+len(end_tokens)] == end_tokens:
                             e += len(end_tokens)
                             break
                         e += 1
-                    labels[idx, s:e] = torch.tensor(seq[s:e])
+                    for j in range(s, e):
+                        labels[j] = input_ids[j]
                     i = e
                 else:
                     i += 1
                     
-        inputs["labels"] = labels
-        return inputs
+            new_batch["input_ids"].append(input_ids)
+            new_batch["attention_mask"].append(attention_mask)
+            new_batch["labels"].append(labels)
+            
+        pad_to = max(len(x) for x in new_batch["input_ids"])
+        for idx in range(len(new_batch["input_ids"])):
+            pad = pad_to - len(new_batch["input_ids"][idx])
+            new_batch["input_ids"][idx].extend([tokenizer.pad_token_id] * pad)
+            new_batch["attention_mask"][idx].extend([0] * pad)
+            new_batch["labels"][idx].extend([-100] * pad)
+            
+        return {k: torch.tensor(v) for k, v in new_batch.items()}
         
     trainer = SFTTrainer(
         model=model,

@@ -1,0 +1,59 @@
+﻿chunk_id,policy,round_id,source_type,text
+BL_R1_c0,BL,1.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+BL_R1_c1,BL,1.0,RL_RATIONALE,무게균형지수(WBI) 1.000로 높아 행간 하중이 고르게 분산됨.
+BL_R2_c0,BL,2.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +12.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R2_c1,BL,2.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +6.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R2_c2,BL,2.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +5.2) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R2_c3,BL,2.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+BL_R2_c4,BL,2.0,RL_RATIONALE,POD 순수도(PSR) 1.000 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+BL_R3_c0,BL,3.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +44.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R3_c1,BL,3.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +14.7) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R3_c2,BL,3.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +14.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R3_c3,BL,3.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+BL_R3_c4,BL,3.0,RL_RATIONALE,POD 순수도(PSR) 1.000 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+BL_R4_c0,BL,4.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +1052.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R4_c1,BL,4.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +262.3) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R4_c2,BL,4.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +200.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+BL_R4_c3,BL,4.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+BL_R4_c4,BL,4.0,RL_RATIONALE,무게균형지수(WBI) 0.936로 높아 행간 하중이 고르게 분산됨.
+SF_R1_c0,SF,1.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+SF_R1_c1,SF,1.0,RL_RATIONALE,무게균형지수(WBI) 1.000로 높아 행간 하중이 고르게 분산됨.
+SF_R2_c0,SF,2.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +16.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R2_c1,SF,2.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +12.5) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R2_c2,SF,2.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +12.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R2_c3,SF,2.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+SF_R2_c4,SF,2.0,RL_RATIONALE,무게균형지수(WBI) 0.811로 높아 행간 하중이 고르게 분산됨.
+SF_R2_c5,SF,2.0,RL_RATIONALE,POD 순수도(PSR) 1.000 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+SF_R3_c0,SF,3.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +60.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R3_c1,SF,3.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +17.8) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R3_c2,SF,3.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +16.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R3_c3,SF,3.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+SF_R3_c4,SF,3.0,RL_RATIONALE,POD 순수도(PSR) 1.000 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+SF_R4_c0,SF,4.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +1052.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R4_c1,SF,4.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +257.8) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R4_c2,SF,4.0,RL_RATIONALE,POD 반출순서 정렬 우수 (보상 +195.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+SF_R4_c3,SF,4.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+SF_R4_c4,SF,4.0,RL_RATIONALE,무게균형지수(WBI) 0.930로 높아 행간 하중이 고르게 분산됨.
+EF_R1_c0,EF,1.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+EF_R1_c1,EF,1.0,RL_RATIONALE,무게균형지수(WBI) 1.000로 높아 행간 하중이 고르게 분산됨.
+EF_R2_c0,EF,2.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +24.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R2_c1,EF,2.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +11.2) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R2_c2,EF,2.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +10.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R2_c3,EF,2.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+EF_R2_c4,EF,2.0,RL_RATIONALE,무게균형지수(WBI) 0.859로 높아 행간 하중이 고르게 분산됨.
+EF_R2_c5,EF,2.0,RL_RATIONALE,POD 순수도(PSR) 1.000 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+EF_R3_c0,EF,3.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +72.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R3_c1,EF,3.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +21.5) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R3_c2,EF,3.0,RL_RATIONALE,Same-Tier 밴드 정렬 우수 (보상 +14.5) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R3_c3,EF,3.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+EF_R3_c4,EF,3.0,RL_RATIONALE,무게균형지수(WBI) 0.855로 높아 행간 하중이 고르게 분산됨.
+EF_R3_c5,EF,3.0,RL_RATIONALE,POD 순수도(PSR) 0.875 — 같은 목적항 컨테이너가 한 행에 그룹핑되어 반출순서 최적화에 유리.
+EF_R4_c0,EF,4.0,RL_RATIONALE,동일 POD 수평 적재 우수 (보상 +1036.0) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R4_c1,EF,4.0,RL_RATIONALE,행간 무게 균형 우수 (보상 +261.7) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R4_c2,EF,4.0,RL_RATIONALE,POD 반출순서 정렬 우수 (보상 +194.1) — 해당 항목이 양(+)의 기여를 하여 계획 품질을 높임.
+EF_R4_c3,EF,4.0,RL_RATIONALE,재취급률(OSR) 0.000로 낮아 양하 시 불필요한 재취급이 거의 없음.
+EF_R4_c4,EF,4.0,RL_RATIONALE,무게균형지수(WBI) 0.952로 높아 행간 하중이 고르게 분산됨.
+REG_SOLAS_VI,,,REGULATION,선박 적재 시 컬럼별 허용 하중을 초과하지 않아야 한다 (복원성 확보).
+REG_IMO_STABILITY,,,REGULATION,무거운 화물은 하부 Tier에 적재하여 무게중심을 낮춘다 (heavy-down).
+REG_SOP_STOWAGE,,,REGULATION,동일 POD 컨테이너는 가능한 그룹핑하여 반출 효율을 높인다.
+REG_ISPS,,,REGULATION,위험물 컨테이너는 격리 규칙에 따라 배치한다.

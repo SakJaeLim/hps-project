@@ -1,0 +1,4 @@
+﻿cons_id:ID(Constraint),code,rule,source,:LABEL
+C_OVERSTOW,STOWAGE,POD discharge order must not be blocked by later-POD on top,Operational,Constraint
+C_COL_WT,SOLAS_VI,Column weight <= 145 MT,SOLAS,Constraint
+C_COG,IMO_STABILITY,Heavy containers lower (heavy-down) for COG/stability,IMO,Constraint

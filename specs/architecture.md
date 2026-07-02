@@ -9,7 +9,7 @@
 - **L3 Engine**: StowageStrategy — RL(원우 재사용·기본)·Greedy(폴백)·CP(향후) · ADR-0001
 - **L2 Ontology**: Neo4j 상태 표현·Cypher 검증·LLM 근거(grounding)
 - **L5 Knowledge Access**: 문서RAG · NL2SQL · GraphRAG(text2Cypher) + 융합(xAI) + Qwen3 LoRA (specs/07)
-- **L1 Data Adapter**: Simulated(현재) / Live(실데이터 9종 — specs/06)
+- **L1 Data Adapter**: Simulated(현재) / SNCT-Live(실데이터 9종 — specs/06)
 - **L0 Method**: AI-Native(바이브) + SDD + GitHub flow
 - **구현 언어**: Python 단일 런타임 · 질의=Cypher/SQL · 입력=EDIFACT (ADR-0002)
 - **계약(작업 경계)**: YardState · CandidatePlan · Violation · Recommendation

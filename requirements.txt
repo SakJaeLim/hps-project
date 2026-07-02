@@ -3,19 +3,26 @@ gymnasium
 numpy
 pandas
 torch
-stable-baselines3
+matplotlib
 
 # --- Domain SLM / RAG (Track 1) ---
 transformers
 peft
 accelerate
-qwen-vl-utils
 networkx
 scikit-learn
+langgraph>=0.2     # 지식 오케스트레이터(Corrective-RAG) — 미설치 시 순수 파이썬 폴백
 duckdb
 sqlalchemy
+neo4j             # GraphRAG/LPG Neo4j 드라이버 — spec 07 (미연결 시 CSV 폴백)
 requests
-rouge
+
+# --- Data Infrastructure ---
+psycopg2-binary   # NEON PostgreSQL 드라이버
+chromadb           # VectorDB — 문서 RAG 시맨틱 검색
+sentence-transformers  # 임베딩 bge-m3 모델 가동용
+python-docx        # DOCX 파싱 (Safety SOP, 규정 문서)
+pymupdf            # PDF 파싱 (위험물 규정, Stowage Planning)
 
 # --- Orchestrator / Vector / Graph (Track 1.5) ---
 langgraph>=0.2
@@ -29,7 +36,11 @@ fastapi
 uvicorn
 streamlit
 pydantic
+stable-baselines3
 
 # --- Dev ---
 pytest
 python-dotenv
+rouge
+openpyxl
+trl               # SFT Trainer (파인튜닝)

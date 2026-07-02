@@ -1,0 +1,13 @@
+﻿run_id,policy,model_version,seed,round_id,level,created_at,episodes,steps,train_sec,approval_status,operator,note
+single_bay_6pod_ppo_v13_3way_BL_R1,BL,v14,42,1,1,2026-06-07T09:47:21,20000,320000,883.7,PENDING,,
+single_bay_6pod_ppo_v13_3way_BL_R2,BL,v14,42,2,2,2026-06-07T09:47:21,25000,1220000,2500.5,PENDING,,
+single_bay_6pod_ppo_v13_3way_BL_R3,BL,v14,42,3,3,2026-06-07T09:47:21,32000,3268000,5796.2,PENDING,,
+single_bay_6pod_ppo_v13_3way_BL_R4,BL,v14,42,4,4,2026-06-07T09:47:21,48000,8068000,13892.8,PENDING,,
+single_bay_6pod_ppo_v13_3way_SF_R1,SF,v14,42,1,1,2026-06-07T09:47:21,20000,320000,882.2,PENDING,,
+single_bay_6pod_ppo_v13_3way_SF_R2,SF,v14,42,2,2,2026-06-07T09:47:21,25000,1220000,2523.6,PENDING,,
+single_bay_6pod_ppo_v13_3way_SF_R3,SF,v14,42,3,3,2026-06-07T09:47:21,32000,3268000,5812.0,PENDING,,
+single_bay_6pod_ppo_v13_3way_SF_R4,SF,v14,42,4,4,2026-06-07T09:47:21,48000,8068000,13863.5,PENDING,,
+single_bay_6pod_ppo_v13_3way_EF_R1,EF,v14,42,1,1,2026-06-07T09:47:21,20000,320000,884.6,PENDING,,
+single_bay_6pod_ppo_v13_3way_EF_R2,EF,v14,42,2,2,2026-06-07T09:47:21,25000,1220000,2506.8,PENDING,,
+single_bay_6pod_ppo_v13_3way_EF_R3,EF,v14,42,3,3,2026-06-07T09:47:21,32000,3268000,5829.9,PENDING,,
+single_bay_6pod_ppo_v13_3way_EF_R4,EF,v14,42,4,4,2026-06-07T09:47:21,48000,8068000,13879.2,PENDING,,

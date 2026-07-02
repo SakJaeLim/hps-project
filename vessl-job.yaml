@@ -1,0 +1,55 @@
+# ============================================================
+# VESSL AI — SFT Finetuning Job Configuration
+# ============================================================
+name: portslm-sft-finetune
+description: "SFT Finetuning for PortSLM model using Qwen2.5-VL-3B"
+
+resources:
+  cluster: "vessl-gcp-oregon"
+  preset: "gpu-l4-single"
+
+image: pytorch/pytorch:2.3.0-cuda12.1-cudnn8-devel
+
+run:
+  - |
+    echo "============================================="
+    echo "🚀 [PortSLM VESSL Job] SFT 파이프라인 시작"
+    echo "============================================="
+    
+    # 1. 레포지토리 클론 및 이동
+    git clone -b sunny https://github.com/SakJaeLim/hps-project.git /workspace/code
+    cd /workspace/code
+    
+    # 2. 필수 의존성 라이브러리 설치
+    pip install --upgrade pip
+    pip install "transformers==4.55.2" "trl==0.21.0" "peft==0.17.0" datasets accelerate bitsandbytes qwen-vl-utils wandb python-docx pymupdf openpyxl
+    
+    # 3. 데이터셋 환경변수 및 모듈 경로 로드
+    export PYTHONPATH=/workspace/code/src
+    
+    # 4. 학습 데이터 = 개선된 결정형 SFT셋(data/sft_v2, repo에 커밋됨).
+    #    (구) prepare_vessl_dataset 는 04_Finetuning(SFT) 문서낭독 데이터를 그대로
+    #    덤프해 결정능력을 망가뜨렸으므로 제거. data/sft_v2 는 결정형 2배 + 누설0
+    #    독립 골든셋으로 검증된 데이터다. 재생성하려면 아래 주석 해제:
+    # python -m snct.data.build_sft_v2 --out-dir data/sft_v2
+    echo "[data] train/val/golden 건수:"
+    wc -l data/sft_v2/train.jsonl data/sft_v2/val.jsonl data/sft_v2/eval_golden.jsonl
+
+    # 5. QLoRA SFT 학습 실행 (개선 데이터셋)
+    python src/snct/slm/finetune.py \
+      --model-id "Qwen/Qwen2.5-VL-3B-Instruct" \
+      --train-path "data/sft_v2/train.jsonl" \
+      --val-path "data/sft_v2/val.jsonl" \
+      --output-dir "/workspace/output/portslm-lora"
+      
+    # 6. LoRA 어댑터 가중치 병합 및 Hugging Face v2 업로드
+    python src/snct/slm/merge_upload.py \
+      --base-model "Qwen/Qwen2.5-VL-3B-Instruct" \
+      --adapter-path "/workspace/output/portslm-lora" \
+      --output-dir "/workspace/output/portslm-merged" \
+      --upload-repo "AICPADSLIM/PortSLM-Qwen2.5-VL-3B-v2" \
+      --hf-token "$HF_TOKEN"
+      
+    echo "============================================="
+    echo "🎉 [PortSLM VESSL Job] 모든 학습 및 v2 업로드가 완료되었습니다!"
+    echo "============================================="

@@ -5,7 +5,7 @@ from snct.common.schema import YardState, CandidatePlan, Violation, Recommendati
 from snct.data.provider import get_provider
 from snct.engine.base import get_strategy
 from snct.ontology.graph import Ontology
-from snct.knowledge.orchestrator import answer as knowledge_answer
+from snct.knowledge.orchestrator import answer as knowledge_answer  # router 상위호환(Corrective-RAG+faithfulness)
 from snct.knowledge.explain import explain
 
 
@@ -20,6 +20,7 @@ class PipelineState:
     evidence: list[dict] = field(default_factory=list)
     rationale: str = ""
     engine_name: str = "greedy"
+    deterministic: bool = True   # RL 추론: True=argmax(최적), False=표집(매 실행 다른 대안)
     retry_count: int = 0
     max_retries: int = 2
 
@@ -45,7 +46,7 @@ def plan_step(state: PipelineState) -> PipelineState:
     if state.yard_state is None:
         return state
 
-    strategy = get_strategy(state.engine_name)
+    strategy = get_strategy(state.engine_name, deterministic=state.deterministic)
     state.plan = strategy.plan(state.yard_state)
     return state
 
@@ -74,15 +75,18 @@ def run_pipeline(
     question: str,
     vessel_id: str = "VESSEL-001",
     engine: str = "greedy",
+    deterministic: bool = True,
 ) -> Recommendation:
     """Execute the full 4-node pipeline with retry on constraint violations.
 
     Flow: Recognize → Plan → Validate → (if errors → retry Plan) → Explain
+    deterministic: RL 추론 방식 (True=argmax 최적/재현성, False=표집/매 실행 다른 대안).
     """
     state = PipelineState(
         question=question,
         vessel_id=vessel_id,
         engine_name=engine,
+        deterministic=deterministic,
     )
 
     # Node 1: Recognize
@@ -125,3 +129,80 @@ def build_graph():
     """Build the pipeline graph (API compatibility).
     Returns the run_pipeline function as the executable graph."""
     return run_pipeline
+
+
+# ────────────────────────────────────────────────────────────────────
+# 설명가능 RL 흐름 (spec 07 xAI-RL): 질의 → 근거수집(RDB·LPG) → 설명 → 자기검증
+# ────────────────────────────────────────────────────────────────────
+import re
+
+_POLICY_RE = re.compile(r"\b(BL|SF|EF)\b", re.IGNORECASE)
+_ROUND_RE = re.compile(r"(\d+)\s*(?:라운드|round|R\b|회차)", re.IGNORECASE)
+
+
+def parse_decision_ref(question: str):
+    """자연어 질의에서 (policy, round_id)를 추출. 실패 시 None. → RLDecisionRef."""
+    from snct.common.schema import RLDecisionRef
+
+    pm = _POLICY_RE.search(question or "")
+    rm = _ROUND_RE.search(question or "")
+    if not pm or not rm:
+        return None
+    return RLDecisionRef(policy=pm.group(1).upper(), round_id=int(rm.group(1)))
+
+
+def run_explanation(
+    question: str | None = None,
+    policy: str | None = None,
+    round_id: int | None = None,
+    with_lpg: bool = True,
+) -> Recommendation:
+    """RL 의사결정 설명 흐름. policy/round_id 직접 지정 또는 question에서 파싱.
+    근거 수집(RDB·LPG) → explain 융합 → faithfulness 자기검증 → Recommendation."""
+    # 1) 인식: 의사결정 참조 결정
+    if policy is None or round_id is None:
+        ref = parse_decision_ref(question or "")
+        if ref is None:
+            return Recommendation(
+                plan=CandidatePlan(engine="rl"),
+                rationale="질의에서 정책(BL/SF/EF)과 라운드를 인식하지 못했습니다.",
+                checks=["parse=failed"],
+            )
+        policy, round_id = ref.policy, ref.round_id
+
+    # 2) 근거 수집 + 설명
+    from snct.data.sources.rl_results import RLResultStore
+    from snct.knowledge.explain import explain
+
+    store = RLResultStore()
+    try:
+        decision = store.get_decision(policy, round_id)
+    except KeyError:
+        return Recommendation(
+            plan=CandidatePlan(engine="rl"),
+            rationale=f"해당 의사결정을 찾을 수 없습니다 (policy={policy}, round={round_id}).",
+            checks=[f"policy={policy}", f"round={round_id}", "found=false"],
+        )
+
+    lpg = None
+    if with_lpg:
+        try:
+            from snct.knowledge.lpg import get_lpg
+            lpg = get_lpg()  # Neo4j 가용 시 그래프DB, 아니면 CSV 폴백
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            lpg = None
+
+    rationale = explain(CandidatePlan(engine="rl"), [], evidence=[], decision=decision, lpg=lpg)
+
+    # 3) 자기검증: 설명의 수치 근거율(환각 가드)
+    checks = [f"policy={policy}", f"round={round_id}"]
+    try:
+        from snct.eval.faithfulness import score_decision
+        rep = score_decision(decision, text=rationale, lpg=lpg)
+        checks.append(f"faithfulness={rep['faithfulness']:.1f}")
+    except Exception:
+        pass
+
+    return Recommendation(plan=CandidatePlan(engine="rl"), rationale=rationale, checks=checks)
