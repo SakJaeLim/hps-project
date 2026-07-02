@@ -102,14 +102,21 @@ def ask(question: str) -> dict:
     """→ {answer, sources:[{type:'graph', ref, snippet}]}.
     템플릿 매칭 우선 → 미스 시 키워드 기반 서브그래프 탐색."""
 
-    # Try template matching
     q_lower = question.lower()
-    if "적재" in q_lower or "stacked" in q_lower:
-        # Extract container ID if present
-        sources = _keyword_search(question)
-    elif "재취급" in q_lower or "rehandling" in q_lower:
-        sources = _keyword_search(question)
-    else:
+    sources = []
+    # 규정 질의 → related_regulations 템플릿 실사용
+    if any(w in q_lower for w in ["규정", "regulation", "imdg", "solas", "격리"]):
+        for node_id, attrs in _KG.nodes(data=True):
+            if node_id.lower() in q_lower:
+                for r in TEMPLATES["related_regulations"](_KG, node_id):
+                    sources.append({
+                        "type": "graph",
+                        "ref": r["regulation"],
+                        "snippet": f"({r['relation']}) {node_id} → {r['regulation']}",
+                        "neighbors": [],
+                    })
+    # 폴백: 키워드 서브그래프 탐색
+    if not sources:
         sources = _keyword_search(question)
 
     if not sources:

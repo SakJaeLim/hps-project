@@ -24,6 +24,13 @@ sentence-transformers  # 임베딩 bge-m3 모델 가동용
 python-docx        # DOCX 파싱 (Safety SOP, 규정 문서)
 pymupdf            # PDF 파싱 (위험물 규정, Stowage Planning)
 
+# --- Orchestrator / Vector / Graph (Track 1.5) ---
+langgraph>=0.2
+chromadb>=0.5
+FlagEmbedding>=1.2        # BGE-M3 임베딩
+neo4j>=5.20              # graphrag 실연결 시
+psycopg2-binary>=2.9     # nl2sql(Neon) 실연결 시
+
 # --- Serving / API / UI ---
 fastapi
 uvicorn
